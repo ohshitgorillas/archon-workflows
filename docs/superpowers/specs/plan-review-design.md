@@ -33,7 +33,7 @@ Each iteration is either a **plan round** (plan, cite, prosecute) or a **spec ro
         when: "$LOOP_PREV.round.output.next != 'spec'"   # '' on iteration 1, so it runs
         context: fresh
         mutates_checkout: false
-        allowed_tools: [Read, Grep, Glob, Task]
+        allowed_tools: [Read, Grep, Glob, Agent]
         agents:
           detective:
             description: Answers the planner's questions from the checkout as a path:line Table
@@ -64,7 +64,7 @@ Each iteration is either a **plan round** (plan, cite, prosecute) or a **spec ro
         when: "$LOOP_PREV.round.output.next == 'spec'"
         context: fresh
         mutates_checkout: false
-        allowed_tools: [Read, Grep, Glob, Task]
+        allowed_tools: [Read, Grep, Glob, Agent]
         sandbox: { enabled: true, network: { allowedDomains: [], allowManagedDomainsOnly: true } }
         agents:
           examiner:
@@ -184,9 +184,9 @@ required: [rows]
 
 ### Commands
 
-- `plan-review/commands/plan.md`. The prior Plan and findings come from `$LOOP_PREV.round.output.plan` and `.findings`, not from `$LOOP_PREV.plan/prosecute/arbitrate`. The planner works out its questions from the design, scope, survey, carry and the prior Plan and findings, and calls `detective` through `Task` before it plans. It calls the Detective again whenever more needs answering, and builds the Plan from the tables. Each step's `cites` carries, unchanged, every Detective cite the step relies on; the planner never edits a line number. It fixes every `author: plan` finding. Its rules are unchanged.
+- `plan-review/commands/plan.md`. The prior Plan and findings come from `$LOOP_PREV.round.output.plan` and `.findings`, not from `$LOOP_PREV.plan/prosecute/arbitrate`. The planner works out its questions from the design, scope, survey, carry and the prior Plan and findings, and calls `detective` through the `Agent` tool before it plans. It calls the Detective again whenever more needs answering, and builds the Plan from the tables. Each step's `cites` carries, unchanged, every Detective cite the step relies on; the planner never edits a line number. It fixes every `author: plan` finding. Its rules are unchanged.
 - `plan-review/commands/prosecute.md`. The Plan is `$cite.output.plan`, whose cites `cite` has resolved. The prosecutor never checks or corrects a cite's line; an unresolved cite reaches the planner from `round`, not from the prosecutor. Everything else is unchanged.
-- `plan-review/commands/spec.md`. The Plan is `$LOOP_PREV.round.output.plan`, which the prosecutor approved. The prior Spec is `.spec` and the findings are `.findings`; it fixes the `author: spec` ones. The specifier decides what needs measuring and calls `examiner` through `Task` with the scratch directory `$ARTIFACTS_DIR/.archon/scratch/spec/`. It calls the Examiner again whenever more needs spiking, and builds the Spec from the measurements. It never changes the Plan. Its rules are unchanged.
+- `plan-review/commands/spec.md`. The Plan is `$LOOP_PREV.round.output.plan`, which the prosecutor approved. The prior Spec is `.spec` and the findings are `.findings`; it fixes the `author: spec` ones. The specifier decides what needs measuring and calls `examiner` through the `Agent` tool with the scratch directory `$ARTIFACTS_DIR/.archon/scratch/spec/`. It calls the Examiner again whenever more needs spiking, and builds the Spec from the measurements. It never changes the Plan. Its rules are unchanged.
 - `plan-review/commands/arbitrate.md`. The Plan is `$LOOP_PREV.round.output.plan`. Everything else is unchanged.
 
 ### Callers
@@ -196,19 +196,39 @@ required: [rows]
 
 ### Fixtures
 
-Each fixture keeps `exec-code: true` with `cite`, `round` and `verdict` unstubbed. A fixture proves "did not run" by leaving that node unstubbed: strict coverage fails a reached node that has no stub. A fixture proves "not re-cut" with `fixture.resolved-text-contains` on `verdict`, whose resolved text carries the last `round` output.
+`archon workflow test` (Archon v0.13.2) runs one iteration of a `loop_group` and never runs its `until_bash`, even under `exec-code: true`, and a stub returns the same output on every iteration. In every fixture `rounds` therefore runs only iteration 1, a plan round: `plan`, `cite`, `prosecute` and `round` run, `spec` and `arbitrate` are skipped, and `verdict` reads that one `round` output, so its `verdict` field is `refused` whenever it runs. Fixtures cover only this single pass. Every route that needs a second iteration (a spec round, `next: done`, a reopen, either cap) is proved by the live-run checks below, and no fixture exists for it.
 
-| Fixture | Stubs | Proves |
+Each fixture sets `exec-code: true`, runs `cite` and `round` unstubbed, and lists its route in `fixture.reached`. A fixture proves "did not run" by leaving that node unstubbed: strict coverage fails a reached node that has no stub. `fixture.resolved-text-contains` takes one fragment per node, so a fixture with several checks puts each on a different node. `verdict`'s resolved text carries the `round` output as compact JSON in the key order `next`, `cuts`, `specs`, `plan`, `spec`, `findings`, so `"next":…,"cuts":…,"specs":…` is one contiguous fragment.
+
+A caller's passing fixture stubs plan-review's `verdict` node with a `pass` result (`verdict: pass`, `plan`, `spec`, `findings: []`, `decisions: []`), keyed as `archon workflow run <caller> --dry-run --stubs-init` spells it (`planning__verdict` in `feature`). A caller's refused fixture leaves `verdict` unstubbed, so the real `round` and `verdict` produce the refusal. No caller fixture stubs `spec` or `arbitrate`.
+
+| Fixture | Stubs | Route (`fixture.reached`) | Checks |
+|---|---|---|---|
+| `plan-review/fixtures/plan-passed.stubs.yaml` | plan; prosecute `pass` | rounds, plan, cite, prosecute, round, verdict | `verdict`: `"next":"spec","cuts":1,"specs":0`. A passed Plan with every cite resolved hands on to a spec round. |
+| `plan-review/fixtures/plan-failed.stubs.yaml` | plan; prosecute `fail` (`author: plan`) | rounds, plan, cite, prosecute, round, verdict | `verdict`: `"next":"plan","cuts":1,"specs":0`. A failed Plan goes back to the planner. |
+| `plan-review/fixtures/cites.stubs.yaml`, with `plan-review/fixtures/cites.txt` | plan with one step citing `cites.txt` three times: line 1 `alpha line one` (exact), line 4 `gamma line three` (the quote is on line 3), line 2 `omega line none` (in no line); prosecute `pass` | rounds, plan, cite, prosecute, round, verdict | `prosecute`: `"line":3,"quote":"gamma line three"`, so the prosecutor gets the Plan with the off line corrected. `round`: `"line":2,"quote":"omega line none","reason":"quote not found"`, so the missing quote is refused and its line left as written. `verdict`: `"next":"plan","cuts":1,"specs":0`, so an unresolved cite sends the Plan back despite the pass. `cites.txt` is a fixed, committed text file only this fixture reads. |
+| `finish/fixtures/approved.stubs.yaml` | baseline, sync, plan, prosecute `pass`, the `verdict` pass stub, and today's build-loop, gate, bail and land stubs | baseline, cycle, sync, gate, bail, land | `finish` builds and lands on a passing plan-review result. |
+| `finish/fixtures/refused.stubs.yaml` | baseline, sync, plan, prosecute `fail` (`author: plan`), and today's stubs after `planning`; `verdict` unstubbed | baseline, cycle, sync, gate, bail, ask | A refused verdict from the real `round` and `verdict` reaches `finish` and meets the schema. |
+| `feature/fixtures/approved.stubs.yaml` | read-request, plan, prosecute `pass`, the `planning__verdict` pass stub, and today's gate stub | read-request, planning__verdict, gate | `feature` reaches its gate on a passing plan-review result. Expect `completed`. |
+| `feature/fixtures/rejected.stubs.yaml` | as `approved`, with today's rejecting gate stub | read-request, planning__verdict, gate, rejected | A rejection at the gate cancels. Expect `cancelled`. |
+| `feature/fixtures/refused.stubs.yaml` | read-request, plan, prosecute `fail` (`author: plan`); `planning__verdict` unstubbed | read-request, planning__verdict | The `refused` cancel reads findings from the real verdict. Expect `cancelled`. |
+
+`plan-review/fixtures/passed.stubs.yaml`, `plan-review/fixtures/refused.stubs.yaml` and `feature/fixtures/round-2.stubs.yaml` are deleted.
+
+### Live-run checks
+
+These checks replace a fixture for every route that needs a second `rounds` iteration. Each is read from a live run's trace: which body nodes ran in each iteration, each iteration's `round` output, and `verdict`. L1, L2, L3 and L8 are read on the first live run of the rebuilt `plan-review` (through `feature` or `finish`). L4 to L7 are each read on the first live run that takes that route; a route no live run has taken stays unproved.
+
+| Check | Route | The run must show |
 |---|---|---|
-| `plan-review/fixtures/refused-at-plan.stubs.yaml` | plan, prosecute `fail` (`author: plan`); no spec, no arbitrate | Every round fails at the Plan. The call stops at the Plan cap after four plan rounds. Spec and arbitrate never run. Expect `completed`; verdict text contains `"next":"refused"`, `"cuts":4` and `"specs":0`. |
-| `plan-review/fixtures/refused-at-spec.stubs.yaml` | plan, prosecute `pass`, spec, arbitrate `fail` (`author: spec`) | Round 1 is a plan round and rounds 2 to 5 are spec rounds; the call stops at the Spec cap. The Plan is never re-cut: verdict text contains `"next":"refused"`, `"cuts":1` and `"specs":4`. |
-| `plan-review/fixtures/passed.stubs.yaml` | all four, both verdicts `pass` | Normal return: verdict text contains `"next":"done"`, `"cuts":1` and `"specs":1`. |
-| `plan-review/fixtures/reopened.stubs.yaml` | prosecute `pass`, arbitrate `fail` (`author: plan`) | Plan rounds and spec rounds alternate for eight rounds; the fourth reopen meets the Plan cap. Verdict text contains `"next":"refused"`, `"cuts":4` and `"specs":4`. |
-| `plan-review/fixtures/cites.stubs.yaml`, with `plan-review/fixtures/cites.txt` | plan with three cites into `cites.txt`: one exact, one a line off, one whose quote is in no line; prosecute `pass`; no spec, no arbitrate | `cite` alone fixes the line that is off and refuses the missing quote: verdict text contains the corrected line, `quote not found` and `"cuts":4`. `cites.txt` is a fixed text file only this fixture reads. |
-| `finish/fixtures/refused.stubs.yaml` | prosecute `fail`; spec and arbitrate removed | A Plan refusal reaches `finish` as a valid refused verdict. |
-| `feature/fixtures/refused.stubs.yaml` | prosecute `fail`; spec and arbitrate removed | The `refused` cancel reads findings from a call refused at the Plan. |
-
-`feature/fixtures/round-2.stubs.yaml` is deleted.
+| L1 Loop end | every call | `rounds` stops after the first iteration whose `round.next` is `done` or `refused`, through `until_bash`; it never runs to `max_iterations: 8`. |
+| L2 Plan round | every iteration whose previous `round.next` is not `spec` | `plan`, `cite` and `prosecute` ran; `spec` and `arbitrate` were skipped; `cuts` is the previous count plus 1 and `specs` is unchanged. |
+| L3 Spec round | every iteration whose previous `round.next` is `spec` | `spec` and `arbitrate` ran; `plan`, `cite` and `prosecute` were skipped; `round.plan` and `cuts` equal the previous iteration's and `specs` is the previous count plus 1. |
+| L4 Pass | the arbiter passes a Spec | that iteration's `round.next` is `done`, the loop ends there, and `verdict` is `pass` with that `round`'s `plan` and `spec`. |
+| L5 Spec retry and Spec cap | the arbiter fails a Spec with only `author: spec` findings | the next iteration is a spec round against the same Plan; the round where `specs` reaches 4 with `next` `spec` sets `next` to `refused`, and `verdict` is `refused`. |
+| L6 Reopen | the arbiter returns an `author: plan` finding | the next iteration is a plan round whose planner reads that finding; `cuts` is the previous count plus 1 and `specs` is not reset. |
+| L7 Plan cap | the prosecutor or an unresolved cite fails the Plan four times | the round where `cuts` reaches 4 with `next` `plan` sets `next` to `refused`, no spec round follows, and `verdict` is `refused`. |
+| L8 Sub-agents | every call | `plan` calls `detective` and `spec` calls `examiner` through the `Agent` tool; the Examiner writes only under `$ARTIFACTS_DIR/.archon/scratch/spec/` and the run's checkout is unchanged. |
 
 ## Homes
 
@@ -218,26 +238,30 @@ Each fixture keeps `exec-code: true` with `cite`, `round` and `verdict` unstubbe
 | State carried between iterations (latest Plan, latest Spec, findings, Plan and Spec attempt counts, next phase) | `round` | `$LOOP_PREV.plan`, `$LOOP_PREV.prosecute`, `$LOOP_PREV.spec` or `$LOOP_PREV.arbitrate` in any command; a `script:` node or artifact file carrying it |
 | Detective role | the `detective` inline agent on `plan` | A Detective on any other node; a Detective that writes or runs anything; a second copy of the Detective prompt; an on-disk `.claude/agents/` detective; Detective rules restated in `plan.md` |
 | Examiner role | the `examiner` inline agent on `spec` | An Examiner on any other node; measuring in the checkout; a second copy of the Examiner prompt; an on-disk `.claude/agents/` examiner; Examiner rules restated in `spec.md` |
-| Research for the Plan | `plan` calling `detective` through `Task`, as often as it needs | The planner measuring or spiking itself; a separate Detective node for the Plan |
-| Research for the Spec | `spec` calling `examiner` through `Task`, as often as it needs | A separate Examiner node for the Spec |
+| Research for the Plan | `plan` calling `detective` through the `Agent` tool, as often as it needs | The planner measuring or spiking itself; a separate Detective node for the Plan |
+| Research for the Spec | `spec` calling `examiner` through the `Agent` tool, as often as it needs | A separate Examiner node for the Spec |
 | Citation resolution (a cite's line checked against its quote, and corrected) | `cite`, `plan-review/scripts/cite.py` | Any agent checking, correcting or arguing a line number; the prosecutor ruling on a cite's line; a second resolver or a resolver written into a command; a cite with no `quote` |
 | Throwaway copies | `$ARTIFACTS_DIR/.archon/scratch/`, which Archon removes when the run ends | Any write to the run's checkout during `plan-review` |
 | Caps: 4 Plan attempts and 4 Spec attempts per call | `round`, through `cuts`, `specs` and `next: refused`; `rounds.max_iterations: 8` is only a backstop the caps always reach first | A count of attempts in a command or in a caller; a cap enforced by `max_iterations`; a counter node beside `round` |
 | Did-not-run proof in fixtures | the node left unstubbed under strict coverage | A stub for a node the case says never runs |
+| Proof of every route that needs a second `rounds` iteration (spec round, `next: done`, reopen, both caps) | the live-run checks L1 to L8 | A fixture for such a route; a stub, node or loop setting that fakes a later iteration |
+| plan-review's result in a caller's passing fixture | a `pass` stub on plan-review's `verdict` node | A caller fixture stubbing `spec` or `arbitrate`; a caller fixture faking a pass through the `rounds` body |
 
 ## Order
 
 No step touches the live run `55246a548b9023ebcebb00db7cc448a7`. Archon snapshots include and command bodies when a run loads, so file edits do not reach it.
 
-1. `workflow-builder`: `plan-review/plan-review.yaml`, `plan-review/scripts/cite.py` (new), `plan-review/commands/plan.md`, `plan-review/commands/prosecute.md`, `plan-review/commands/spec.md`, `plan-review/commands/arbitrate.md`, and `plan-review/fixtures/` (`passed.stubs.yaml` updated; `refused.stubs.yaml` replaced by `refused-at-plan.stubs.yaml`; `refused-at-spec.stubs.yaml`, `reopened.stubs.yaml`, `cites.stubs.yaml` and `cites.txt` new). `archon validate workflows` and `archon workflow test plan-review` must pass. The docs under `docs/reference/archon/` do not state the following, and this step's fixtures prove each one:
-   - A bash or `until_bash` reference to a producer skipped in the current iteration injects `''` (`workflow-language.md`, "Reading across a skipped branch", says only that bindings never resolve to `''`).
+1. `workflow-builder`: `plan-review/plan-review.yaml`, `plan-review/scripts/cite.py` (new), `plan-review/commands/plan.md`, `plan-review/commands/prosecute.md`, `plan-review/commands/spec.md`, `plan-review/commands/arbitrate.md`, and `plan-review/fixtures/` (`plan-passed.stubs.yaml` replacing `passed.stubs.yaml`, `plan-failed.stubs.yaml` replacing `refused.stubs.yaml`, `cites.stubs.yaml` and `cites.txt` new). `archon validate workflows` must pass with no warning on the `allowed_tools` of `plan` or `spec`, and `archon workflow test plan-review` must pass. The docs under `docs/reference/archon/` do not state the following, and this step's fixtures prove each one except where a live-run check is named:
+   - A bash reference to a producer skipped in the current iteration injects `''` (`workflow-language.md`, "Reading across a skipped branch", says only that bindings never resolve to `''`). `round` reads the skipped `spec` and `arbitrate` in every fixture. The `until_bash` read of `$round.output.next` is live-run check L1.
+   - A stubbed command node's resolved text is its command body with each reference substituted, an object as compact JSON. The `cites` fixture's `prosecute` check proves it.
+   - `allowed_tools` names the sub-agent tool `Agent`; the validator warns that `Task` is silently ignored, while `workflow-language.md`, "Inline sub-agents", still names `Task`. This step's `archon validate workflows` run proves it.
    - Strict coverage treats a node as reached only when the simulation reaches it. `cli.md`, "workflow test", has no did-not-run key and does not say whether reach is static or simulated.
    - A `script:` node under `exec-code: true` has the root of its scratch worktree as its working directory. `cli.md`, "workflow test", says only that such nodes run in a scratch worktree of `HEAD`. So `cites.txt` reaches the `cites` fixture only once it is committed, and the step commits it before that fixture's run.
    - A body node may read `$cite.output` when `cite` is an ancestor of its `depends_on` but not listed there.
-   - An inline agent's `tools` may go beyond the node's `allowed_tools`, and the node's `sandbox` binds its sub-agents. Neither "Inline sub-agents" nor `sandbox` in `workflow-language.md` says so. A fixture cannot prove this; the first live run shows it.
+   - An inline agent's `tools` may go beyond the node's `allowed_tools`, and the node's `sandbox` binds its sub-agents. Neither "Inline sub-agents" nor `sandbox` in `workflow-language.md` says so. A fixture cannot prove this; live-run check L8 shows it.
    - The reference does not name the Archon version it describes.
 
    If any of these fails, the builder stops and reports it with the failing output. It adds no workaround node.
-2. `workflow-builder`: `finish/fixtures/refused.stubs.yaml`. `archon workflow test finish` must pass. Runs after step 1.
-3. `workflow-builder`: `feature/feature.yaml` and `feature/fixtures/refused.stubs.yaml`, and the deletion of `feature/fixtures/round-2.stubs.yaml`. `archon workflow test feature` must pass. Runs after step 1.
+2. `workflow-builder`: `finish/fixtures/approved.stubs.yaml` and `finish/fixtures/refused.stubs.yaml`. `archon workflow test finish` must pass. Runs after step 1. The docs do not state that under `exec-code: true` a stubbed `bash:` node takes its stub and does not run; the `approved` fixture's `verdict` stub proves it, and if it fails the builder stops and reports it with the failing output.
+3. `workflow-builder`: `feature/feature.yaml`, `feature/fixtures/approved.stubs.yaml`, `feature/fixtures/rejected.stubs.yaml` and `feature/fixtures/refused.stubs.yaml`, and the deletion of `feature/fixtures/round-2.stubs.yaml`. `archon workflow test feature` must pass. Runs after step 1.
 4. `architect` (a `rulings` pass): `docs/superpowers/specs/feature-pipeline-finish-design.md`. Its `plan-review` section, its round-2 and round-cap bullets, its `feature` paragraph (the round-2 route), and its Homes rows for the capped review round, the test spec and the Spec cross-check come to state this design's order, Detective, Examiner, citation resolver and caps of 4 Plan attempts and 4 Spec attempts. Runs after this design is approved.
