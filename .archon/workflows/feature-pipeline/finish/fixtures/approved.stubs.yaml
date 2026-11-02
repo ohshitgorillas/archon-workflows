@@ -1,0 +1,27 @@
+fixture:
+  expect: completed
+  inputs: { design: docs/d.md, scope: "12a", full_check: "make check", branch: feat, land_branch: main, land_checkout: /tmp/land }
+  reached: [baseline, cycle, sync, gate, bail, land]
+baseline: { status: green, tail: ok }
+sync: ""
+plan:
+  steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+  decisions: []
+prosecute: { verdict: pass, findings: [] }
+spec:
+  lines: []
+  helpers: []
+  steps: []
+  decisions: []
+arbitrate: { verdict: pass, findings: [] }
+round: '{"plan":{"steps":[],"decisions":[]},"prosecute":{"verdict":"pass","findings":[]},"spec":{"lines":[],"helpers":[],"steps":[],"decisions":[]},"arbitrate":{"verdict":"pass","findings":[]}}'
+plan__verdict: { verdict: pass, plan: { steps: [] }, spec: { lines: [] }, findings: [], decisions: [] }
+build__before: ""
+write: { step_id: c1, paths: [src/a.py], check: "make check-a", design_gap: null }
+check: { status: green, tail: ok }
+commit: { committed: true, status: "" }
+review: { verdict: pass, findings: [], fixes_used: 0, next: null, remaining: 0, done: [c1], stuck: [], design_gaps: [], stray: [] }
+build__result: { verdict: pass, findings: [], fixes_used: 0, next: null, remaining: 0, done: [c1], stuck: [], design_gaps: [], stray: [] }
+gate: { status: green, tail: ok }
+bail: { pin: ok, findings: [], open: 0, decisions: [], question: "" }
+land: ""

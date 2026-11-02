@@ -1,0 +1,147 @@
+name: finish
+description: >-
+  Finishes an approved design in an existing checkout and lands it. Each cycle merges the
+  land branch, plans the code and test steps, builds every unblocked step, runs the full
+  gate and checks that committed tests match their spec lines. The owner is asked only the
+  decisions that survived review. Lands by fast-forward only; nothing pushes. Start with
+  --cwd set to the branch's checkout.
+provider: claude
+model: claude-opus-5-5
+effort: medium
+
+worktree:
+  enabled: false
+
+inputs:
+  design:
+    required: true
+    description: Approved design path in the checkout.
+  scope:
+    required: true
+    description: Design steps left to build.
+  full_check:
+    required: true
+    description: The repository's full gate command.
+  branch:
+    required: true
+    description: The branch being finished.
+  land_branch:
+    required: true
+    description: The branch it lands on.
+  land_checkout:
+    required: true
+    description: Checkout holding land_branch.
+
+nodes:
+  - id: baseline
+    bash: |
+      cmd=$INPUTS.full_check
+      out=$(bash -c "$cmd" 2>&1)
+      rc=$?
+      tail=$(printf '%s' "$out" | tail -c 4000)
+      if [ "$rc" -eq 0 ]; then s=green; else s=red; fi
+      jq -n --arg s "$s" --arg t "$tail" '{status: $s, tail: $t}'
+    output_format:
+      type: object
+      properties:
+        status: { type: string, enum: [green, red] }
+        tail: { type: string }
+      required: [status, tail]
+
+  - id: cycle
+    depends_on: [baseline]
+    loop_group:
+      max_iterations: 4
+      until_bash: |
+        v=$plan.output.verdict
+        g=$gate.output.status
+        p=$bail.output.pin
+        o=$bail.output.open
+        r=$build.output.remaining
+        [ "$v" = pass ] && [ "$g" = green ] && [ "$p" = ok ] && [ "$o" = 0 ] && [ "$r" = 0 ]
+      nodes:
+        - id: sync
+          bash: |
+            if ! git merge --no-edit $INPUTS.land_branch >/dev/null 2>&1; then
+              git diff --name-only --diff-filter=U
+              git merge --abort
+            fi
+
+        - id: plan
+          include: plan-review
+          depends_on: [sync]
+          with:
+            design: $INPUTS.design
+            scope: $INPUTS.scope
+            survey: |
+              Full-check tail of the previous cycle (empty on the first cycle): $LOOP_PREV.gate.output
+              Baseline full-check tail: $baseline.output
+            carry: |
+              Previous plan-review result (plan, spec, findings, verdict): $LOOP_PREV.plan.output
+              Previous build result (remaining, stuck, design gaps, stray edits): $LOOP_PREV.build.output
+              Previous pin check: $LOOP_PREV.bail.output
+              Owner answer: $LOOP_PREV.ask.output
+              Conflicted paths from the sync just run: $sync.output
+
+        - id: build
+          include: build-loop
+          depends_on: [plan]
+          when: "$plan.output.verdict == 'pass'"
+          with:
+            plan: $plan.output.plan
+            spec: $plan.output.spec
+
+        - id: gate
+          depends_on: [build]
+          trigger_rule: all_done
+          bash: |
+            cmd=$INPUTS.full_check
+            out=$(bash -c "$cmd" 2>&1)
+            rc=$?
+            tail=$(printf '%s' "$out" | tail -c 4000)
+            if [ "$rc" -eq 0 ]; then s=green; else s=red; fi
+            jq -n --arg s "$s" --arg t "$tail" '{status: $s, tail: $t}'
+          output_format:
+            type: object
+            properties:
+              status: { type: string, enum: [green, red] }
+              tail: { type: string }
+            required: [status, tail]
+
+        - id: bail
+          command: bail
+          depends_on: [gate]
+          context: fresh
+          mutates_checkout: false
+          allowed_tools: [Read, Grep, Glob, 'Bash(git log:*)', 'Bash(git diff:*)', 'Bash(git show:*)']
+          output_format:
+            type: object
+            properties:
+              pin: { type: string, enum: [ok, broken] }
+              findings:
+                type: array
+                items: { type: string }
+              open: { type: integer }
+              decisions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    question: { type: string }
+                    recommend: { type: string }
+                    alternative: { type: string }
+                    cost: { type: string }
+                  required: [id, question, recommend, alternative, cost]
+              question: { type: string }
+            required: [pin, findings, open, decisions, question]
+
+        - id: ask
+          depends_on: [bail]
+          when: "$bail.output.open > 0"
+          wait:
+            attention: $bail.output.question
+
+  - id: land
+    depends_on: [cycle]
+    bash: git -C $INPUTS.land_checkout merge --ff-only $INPUTS.branch
