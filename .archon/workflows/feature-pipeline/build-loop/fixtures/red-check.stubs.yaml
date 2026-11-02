@@ -1,0 +1,12 @@
+fixture:
+  expect: completed
+  reached: [before, steps, write, check, commit, review, result]
+  inputs:
+    plan: '{"steps":[{"id":"c1","unit":"u1","kind":"code","paths":["src/a.py"],"check":"make check-a","blocked_by":[]}],"decisions":[]}'
+    spec: '{"lines":[],"helpers":[],"steps":[],"decisions":[]}'
+before: ""
+check: { status: red, tail: "FAILED" }
+commit: { committed: false, status: "" }
+write: { step_id: c1, paths: [src/a.py], check: "make check-a", design_gap: null }
+review: { verdict: stuck, findings: [{ cause: "check red", fix: "fix a" }], fixes_used: 2, next: null, remaining: 0, done: [], stuck: [c1], design_gaps: [], stray: [] }
+result: { verdict: stuck, findings: [], fixes_used: 2, next: null, remaining: 0, done: [], stuck: [c1], design_gaps: [], stray: [] }
