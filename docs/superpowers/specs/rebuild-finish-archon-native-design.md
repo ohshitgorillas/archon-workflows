@@ -1,4 +1,4 @@
-Status: proposed.
+Status: approved.
 
 ## Why
 
@@ -7,9 +7,9 @@ HQPTuner's rebuild-integrate refactor has four steps left: 12a, 12b, 12c and 13 
 Copies and stand-ins the tree holds today:
 
 - **Review rounds unrolled by hand, 2 sets.** `feature-pipeline/feature/feature.yaml:24-136` writes `plan-1`, `prosecute-1`, `plan-2`, `prosecute-2`, and `:168-300` writes `spec-1`, `arbiter-1`, `spec-2`, `arbiter-2`, where one `loop_group` with `until_bash` and `$LOOP_PREV` does each (`docs/reference/archon/workflow-language.md:96`, `:427-436`).
-- **An unrolled bootstrap, 1.** The untracked `feature-pipeline/finish-bootstrap/` holds a 5,006-line YAML of 259 nodes, unrolled per part, with `scripts/part.py` and 14 fixtures. It builds a Python core this design does not use.
-- **A Python core standing in for Archon features, 10 modules.** `docs/superpowers/specs/rebuild-finish-workflow-design.md:20-206` proposes `.shared/trees.py`, `record.py`, `stoprule.py`, `harness.py`, `run_tests_mcp.py`, `section.py`, `cutcheck.py`, `fence.py`, `target.py` and `install.py`. Each has a native counterpart: the live checkout through `--no-worktree` (`docs/reference/archon/cli.md:290`, `docs/reference/archon/worktrees.md:24`); a ledger in `archon state` (`workflow-language.md:1416-1508`); a terminal attention `wait` in a loop body (`workflow-language.md:773`, `docs/reference/archon/approval-nodes.md:152-181`); `bash:` nodes for gates, with their output read by the next iteration (`workflow-language.md:559`, `:497-501`); `$node.execution.checkoutStart` for the start commit (`workflow-language.md:1222-1256`); a review agent in the loop for the plan check; `--config` with `env:` for target facts (`cli.md:297`); and `--workflow-source` for loading the pack (`cli.md:284`, `:351-370`). That file is replaced by this one.
-- **Gate invocation, 3 forms.** `PYTHONPATH=$(pwd) scripts/gate.sh make check` in a worktree (`hqptuner2/CLAUDE.md:57`, `:74`), the JS check written out by hand (`hqptuner2/docs/queue.md:344`), and the core target's bare `make check` (`rebuild-finish-workflow-design.md:290-294`).
+- **An unrolled bootstrap, 1.** `feature-pipeline/finish-bootstrap/` holds a 5,006-line YAML of 259 nodes, unrolled per part, with `scripts/part.py` and 14 fixtures. It builds a Python core this design does not use.
+- **A Python core standing in for Archon features, 10 modules.** `docs/superpowers/specs/rebuild-finish-workflow-design.md:20-206` proposes `.shared/trees.py`, `record.py`, `stoprule.py`, `harness.py`, `run_tests_mcp.py`, `section.py`, `cutcheck.py`, `fence.py`, `target.py` and `install.py`. Each has a native counterpart: the live checkout through `--no-worktree` (`docs/reference/archon/cli.md:290`, `docs/reference/archon/worktrees.md:24`); a ledger in `archon state` (`workflow-language.md:1416-1508`); a terminal attention `wait` in a loop body (`workflow-language.md:773`, `docs/reference/archon/approval-nodes.md:152-181`); `bash:` nodes for gates, with their output read by the next iteration (`workflow-language.md:559`, `:497-501`); `$node.execution.checkoutStart` for the start commit (`workflow-language.md:1222-1256`); a review agent in the loop for the plan check; `--config` with `env:` for target facts (`cli.md:295`); and `--workflow-source` for loading the pack (`cli.md:284`, `:351-370`). That file is replaced by this one.
+- **Gate invocation, 3 forms.** `PYTHONPATH=$(pwd) scripts/gate.sh make check` in a worktree (`hqptuner2/CLAUDE.md:57`, `:74`), the JS check written out by hand (`hqptuner2/docs/queue.md:344`), and the core target's bare `make check` (`rebuild-finish-workflow-design.md:9`).
 - **Progress record, none usable.** The queue marks only `landed 7` and `landed 11` (`hqptuner2/docs/queue.md:3-4`), has no section for 12a to 13, and keeps its baseline log under `/tmp` (`:344`).
 - **The pack is not in a discovery scope.** The repository's own tree is not a scope; a pack under `.archon/workflows/feature-pipeline/` of a checkout is found and its fixtures pass (`docs/host-facts.md:22`). `--workflow-source <path>` reads `<path>/.archon/workflows` (`cli.md:284`).
 
@@ -21,7 +21,7 @@ Facts of the target: `rebuild/integrate` is 114 commits ahead of `v2` and `v2` i
 
 Every workflow folder sits under `.archon/workflows/feature-pipeline/` in this repository and holds its YAML, `commands/` and `fixtures/` (`workflow-language.md:48`). No folder holds `scripts/`. Every agent node names `provider: claude` and a literal model (`docs/host-facts.md:20`). Every agent's `allowed_tools` omits Bash.
 
-**`targets/hqptuner-finish.yaml`**: the one home of target facts, an Archon `--config` layer (`cli.md:297`). Every node reads them as environment variables.
+**`targets/hqptuner-finish.yaml`**: the one home of target facts, an Archon `--config` layer (`cli.md:295`). Every node reads them as environment variables.
 
 ```yaml
 env:
@@ -99,7 +99,7 @@ nodes:
 
 Writer modes: `repair` changes test machinery and keeps every claim and assertion; `fixture` writes one shared fixture or builder the plan lists before its users; `red_then_build` writes the failing test in `red`, then fixes the production defect in `work` with the test held; `contract` changes a claim only as the spec's quotes establish; `port` moves one site set onto the approved interface after `pre` is green.
 
-**`finish/`**: the job. It runs in the integrate worktree, merges `v2` in first, loops 12a, 12b and 12c until `make check` is green with no retired shape left, then fast-forwards `v2`.
+**`finish/`**: the job. It runs in the integrate worktree, merges `v2` in first, loops 12a, 12b and 12c until `make check` is green with no retired shape left, then fast-forwards `v2` with no pause before `land`, a production fix under `hqptuner/static/` included (`hqptuner2/CLAUDE.md:37`).
 
 ```yaml
 name: finish
@@ -136,7 +136,7 @@ nodes:
 
 `plan` rules: phase `recover` while the gate is red, with items routed per 12a; phase `port` once it is green and retired shapes remain, one item per site set, per 12b; phase `done` only when the gate is green and no retired shape remains. Shared-helper items come before their callers in `items` order. A child's `baseline_red` or `blocked` returns to `plan` on the next iteration through `$LOOP_PREV.items`. `ask_open` is true only for a product choice with no recommendation and no basis in the merged code or approved documents; any other question is settled with `ask_recommend` and recorded by `chosen`. A user-facing text change, a gate exemption or a `CHANGELOG.md` entry is always `ask_open` (`hqptuner2/CLAUDE.md:10-11`, `:58`).
 
-Launch, by the owner or a lead on the owner's word (`docs/superpowers/specs/workflow-builder-design.md:127`):
+Launch, by the owner or a lead on the owner's word (`docs/superpowers/specs/workflow-builder-design.md:126`):
 
 ```bash
 archon workflow run finish \
@@ -146,6 +146,8 @@ archon workflow run finish \
 ```
 
 Restart is `archon workflow resume <run-id>`, which skips completed nodes (`workflow-language.md:955-1007`).
+
+After a run ends on `land`, the lead who launched it runs `/task-check` on the landed `v2` and hands the owner its URL. The owner first sees the result there, already on `v2`.
 
 **`feature/`**: moves to `.archon/workflows/feature-pipeline/feature/`. Its plan rounds become one `loop_group` (`plan`, `prosecute`, until the prosecution is clean, `max_iterations: 2`) and its spec rounds another (`spec`, `arbiter`), each reading the last round through `$LOOP_PREV`. Its routes and fixtures keep their outcomes.
 
@@ -158,7 +160,7 @@ Restart is `archon workflow resume <run-id>`, which skips completed nodes (`work
 | Commits | `finish-commit` | `git commit` or `git add` in any other node. `--no-verify`, `SKIP=` or `-n` anywhere. Staging a `HQP_NEVER_COMMIT` path. |
 | Merge of `v2` and landing on `v2` | `finish` nodes `merge-v2` and `land` | `git merge`, `git rm`, `rm`, `git checkout`, `git restore`, `git stash`, `git reset` or `git worktree` in any other node. A landing other than `--ff-only`. |
 | Progress and `CHOSEN` records | the `archon state` document `HQP_LEDGER` | Progress written to `docs/queue.md` or any repository file. A second ledger. |
-| Whether a question halts | `plan`'s `ask_open`, answered by the `ask` wait | Any other `wait` node or message to the owner. A writer, reviewer or auditor halting the run. A merge conflict sent to the owner. |
+| Whether a question halts | `plan`'s `ask_open`, answered by the `ask` wait | Any other `wait` node or message to the owner. A `wait` before `land`. A writer, reviewer or auditor halting the run. A merge conflict sent to the owner. |
 | The cut of 12a and 12b | `plan`, checked by `review` each iteration | Items, specs or routes written by any other node. A writer run while `review` is not clean. |
 | Section green | `finish-item` `work` ending with `check` `exit=0` on the item's tests | A commit of an item whose section is not green. Any other before-and-after comparison. |
 | Writer fence | `finish-item` `fence` | A writer accepted with a changed path outside its `paths`. |
@@ -179,7 +181,3 @@ Restart is `archon workflow resume <run-id>`, which skips completed nodes (`work
 5. `.archon/workflows/feature-pipeline/finish/` | `workflow-builder`
 
 Fixtures settle what the reference leaves unmeasured: that `fan_out` accepts `$plan.output.items`, that a terminal `wait` skipped by `when:` lets the group's `until_bash` decide, and that an `include:` block's `$INPUTS` reach its `bash:` node. Whether a pre-commit hook fails a commit on a tree whose JS suite is red is unmeasured; pre-commit omits the JS suite (`hqptuner2/CLAUDE.md:56`).
-
-## Decisions for the owner
-
-1. **Does the job land on `v2` before you see the result?** Recommend: land unattended once `make check` is green, then the lead runs `/task-check` and hands back the URL; the job stays unattended end to end, at the cost that a production fix under `hqptuner/static/` reaches `v2` before your eyes do (`hqptuner2/CLAUDE.md:37`). Alternative: `finish` ends with an attention `wait` before `land` whenever the run committed under `hqptuner/static/`; nothing visual reaches `v2` unseen, at the cost of one pause whose length is yours.
