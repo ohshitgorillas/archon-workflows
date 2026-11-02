@@ -1,0 +1,226 @@
+name: plan-review
+description: >-
+  Building block, include only; not for a standalone run. One planning stage before any
+  build: the planner cuts the code steps, the specifier writes the test spec against that
+  Plan and cuts the test steps, the prosecutor rules on the Plan and the arbiter on the
+  Spec against the Plan. At most 2 rounds. Returns the last Plan and Spec, a verdict of
+  pass or refused, the findings and the decisions that survived review.
+provider: claude
+model: claude-opus-5-5
+effort: medium
+
+inputs:
+  design:
+    required: true
+    description: Path of the design being built, in the run's checkout.
+  scope:
+    required: true
+    description: Design steps still to build; each is a unit key.
+  survey:
+    required: true
+    description: Tail of the latest full-check output.
+  carry:
+    required: true
+    description: >-
+      Prior cycle: last plan and spec, open steps, design gaps, stuck steps, stray edits,
+      owner answers, last findings and refusal findings.
+
+returns: verdict
+
+nodes:
+  - id: rounds
+    loop_group:
+      max_iterations: 2
+      until_bash: |
+        p=$prosecute.output.verdict
+        a=$arbitrate.output.verdict
+        [ "$p" = pass ] && [ "$a" = pass ]
+      nodes:
+        - id: plan
+          command: plan
+          context: fresh
+          mutates_checkout: false
+          allowed_tools: [Read, Grep, Glob]
+          output_format:
+            type: object
+            properties:
+              steps:
+                type: array
+                minItems: 1
+                maxItems: 20
+                items:
+                  type: object
+                  properties:
+                    id: { type: string, pattern: '^c[0-9]+$' }
+                    unit: { type: string }
+                    kind: { type: string, enum: [code, merge] }
+                    paths:
+                      type: array
+                      minItems: 1
+                      items: { type: string }
+                    check: { type: string }
+                    blocked_by:
+                      type: array
+                      items: { type: string }
+                  required: [id, unit, kind, paths, check, blocked_by]
+              decisions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string, pattern: '^d[0-9]+$' }
+                    question: { type: string }
+                    recommend: { type: string }
+                    alternative: { type: string }
+                    cost: { type: string }
+                  required: [id, question, recommend, alternative, cost]
+            required: [steps, decisions]
+
+        - id: prosecute
+          command: prosecute
+          depends_on: [plan]
+          context: fresh
+          mutates_checkout: false
+          allowed_tools: [Read, Grep, Glob]
+          output_format:
+            type: object
+            properties:
+              verdict: { type: string, enum: [pass, fail] }
+              findings:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    author: { type: string, enum: [plan, spec] }
+                    target: { type: string }
+                    cause: { type: string }
+                    fix: { type: string }
+                    design_it_in: { type: boolean }
+                  required: [author, target, cause, fix, design_it_in]
+            required: [verdict, findings]
+
+        - id: spec
+          command: spec
+          depends_on: [plan]
+          context: fresh
+          mutates_checkout: false
+          allowed_tools: [Read, Grep, Glob]
+          output_format:
+            type: object
+            properties:
+              lines:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string, pattern: '^t[0-9]+$' }
+                    step: { type: string }
+                    claim: { type: string }
+                    mark: { type: string, enum: [RED, GREEN] }
+                    preserves: { type: [string, 'null'] }
+                    file: { type: string }
+                    shared:
+                      type: array
+                      items: { type: string }
+                    setup: { type: string }
+                    assertion: { type: string }
+                  required: [id, step, claim, mark, preserves, file, shared, setup, assertion]
+              helpers:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string, pattern: '^h[0-9]+$' }
+                    path: { type: string }
+                    provides: { type: string }
+                  required: [id, path, provides]
+              steps:
+                type: array
+                maxItems: 20
+                items:
+                  type: object
+                  properties:
+                    id: { type: string, pattern: '^w[0-9]+$' }
+                    before: { type: string }
+                    lines:
+                      type: array
+                      minItems: 1
+                      items: { type: string }
+                    paths:
+                      type: array
+                      items: { type: string }
+                    check: { type: string }
+                    blocked_by:
+                      type: array
+                      items: { type: string }
+                  required: [id, before, lines, paths, check, blocked_by]
+              decisions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string, pattern: '^d[0-9]+$' }
+                    question: { type: string }
+                    recommend: { type: string }
+                    alternative: { type: string }
+                    cost: { type: string }
+                  required: [id, question, recommend, alternative, cost]
+            required: [lines, helpers, steps, decisions]
+
+        - id: arbitrate
+          command: arbitrate
+          depends_on: [spec]
+          context: fresh
+          mutates_checkout: false
+          allowed_tools: [Read, Grep, Glob]
+          output_format:
+            type: object
+            properties:
+              verdict: { type: string, enum: [pass, fail] }
+              findings:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    author: { type: string, enum: [plan, spec] }
+                    target: { type: string }
+                    cause: { type: string }
+                    fix: { type: string }
+                    design_it_in: { type: boolean }
+                  required: [author, target, cause, fix, design_it_in]
+            required: [verdict, findings]
+
+        - id: round
+          depends_on: [prosecute, arbitrate]
+          mutates_checkout: false
+          bash: |
+            plan=$plan.output
+            prosecute=$prosecute.output
+            spec=$spec.output
+            arbitrate=$arbitrate.output
+            jq -n --argjson plan "$plan" --argjson prosecute "$prosecute" --argjson spec "$spec" --argjson arbitrate "$arbitrate" '{plan: $plan, prosecute: $prosecute, spec: $spec, arbitrate: $arbitrate}'
+
+  - id: verdict
+    depends_on: [rounds]
+    mutates_checkout: false
+    bash: |
+      round=$rounds.output
+      printf '%s' "$round" | jq '
+        (.prosecute.findings + .arbitrate.findings) as $found
+        | ($found | map(.target)) as $failed
+        | {
+            verdict: (if .prosecute.verdict == "pass" and .arbitrate.verdict == "pass" then "pass" else "refused" end),
+            plan: .plan,
+            spec: .spec,
+            findings: $found,
+            decisions: ((.plan.decisions + .spec.decisions) | unique_by(.id) | map(select(.id as $d | ($failed | index($d)) == null)))
+          }'
+    output_format:
+      type: object
+      properties:
+        verdict: { type: string, enum: [pass, refused] }
+        plan: { type: object }
+        spec: { type: object }
+        findings: { type: array, items: { type: object } }
+        decisions: { type: array, items: { type: object } }
+      required: [verdict, plan, spec, findings, decisions]
