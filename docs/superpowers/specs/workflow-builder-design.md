@@ -2,13 +2,13 @@ Status: approved.
 
 ## Why
 
-`workflow-builder` is the one agent that writes Archon workflow folders in `/home/atom/dev/archon-workflows`. The tree holds one pack, `.archon/workflows/feature-pipeline/`. Each concern the role shares with the rest of the repository has a home or a copy:
+`workflow-builder` is the one agent that writes Archon workflow folders in `/home/atom/dev/archon-workflows`. The tree holds one pack, `feature-pipeline/` at the repository root. Each concern the role shares with the rest of the repository has a home or a copy:
 
 1. **Archon facts.** Their one home is `docs/reference/archon/`; the repository keeps no separate file of host facts. The Opal behaviors that break a workflow silently live in the role row's `why` and `never`: the sandbox fences Bash only, and relative globs do nothing; a tier model such as `small` fails until `archon setup`; the Claude sandbox needs `socat`, which is absent.
-2. **Pack check.** Its home is the "Checking the pack" row of `docs/superpowers/specs/rebuild-finish-archon-native-design.md`, which also gives each step its done-check. `validate workflows` takes a workflow name, not a path, and resolves names from the discovery scopes. A repository's `.archon/workflows/` is a scope from its root; a temporary `ARCHON_HOME` breaks both checks. `archon workflow test` runs no provider and checks wiring only.
+2. **Pack check.** Its home is the "Checking the pack" row of `docs/superpowers/specs/feature-pipeline-finish-design.md`, which also gives each step its done-check. `validate workflows` takes a workflow name, not a path, and resolves names from the discovery scopes. A repository's `.archon/workflows/` is a scope from its root; a temporary `ARCHON_HOME` breaks both checks. `archon workflow test` runs no provider and checks wiring only.
 3. **Fixtures.** Fixtures are the only check that runs a workflow's routes without a live run.
 4. **Who writes workflow folders.** The `feature-pipeline` design gives each workflow folder to `workflow-builder`.
-5. **Pack layout.** A workflow folder holds exactly one YAML file plus its own `commands/` and `fixtures/`. The pack's code is Archon nodes; its home is the "Pack code" row of `rebuild-finish-archon-native-design.md`. The pack is loaded with `--workflow-source`.
+5. **Pack layout.** A workflow folder holds exactly one YAML file plus its own `commands/` and `fixtures/`. The pack's code is Archon nodes; its home is the "Pack code" row of `feature-pipeline-finish-design.md`. The pack is loaded with `--workflow-source`.
 
 ## Modules
 
@@ -79,7 +79,7 @@ brief (to workflow-builder, model sonnet, effort medium):
   fail-node echo).
   Also write <scratchpad>/proof-repo/.archon/workflows/proof-pack/.shared/helper.py.
 pass, all of:
-  - the done-check of rebuild-finish-archon-native-design.md, run from
+  - the "Checking the pack" done-check of feature-pipeline-finish-design.md, run from
     <scratchpad>/proof-repo for workflow proof-echo and pack proof-pack, exits 0,
     and the report quotes both fixture lines
   - the .shared/helper.py write is refused, named in the report, and absent on disk
@@ -93,13 +93,13 @@ pass, all of:
 | Concern | Home | Forbidden elsewhere |
 |---|---|---|
 | Archon language, CLI and behavior | `docs/reference/archon/` | A copy of a reference page. A file of host facts, in this repository or beside it. |
-| Checking a pack | the "Checking the pack" row of `rebuild-finish-archon-native-design.md`, and its done-check | A checker script. Any other done-check for a workflow folder. The check's commands restated in a role file or design. |
+| Checking a pack | the "Checking the pack" row of `feature-pipeline-finish-design.md`, and its done-check | A checker script. Any other done-check for a workflow folder. The check's commands restated in a role file or design. |
 | Workflow folders `<pack>/<workflow>/` | `workflow-builder` | Any other agent writing them. An Order step giving them to another agent. |
 | Route checks | `<pack>/<workflow>/fixtures/*.stubs.yaml` | A workflow folder with no fixture. A fixture with `exec-code: true`. |
-| Pack code | the "Pack code" row of `rebuild-finish-archon-native-design.md`: Archon nodes | `.shared/`, `scripts/`, a Python module or script, an MCP server or a patch, in a pack or beside it. Path or branch literals in YAML. |
+| Pack code | the "Pack code" row of `feature-pipeline-finish-design.md`: Archon nodes | `.shared/`, `scripts/`, a Python module or script, an MCP server or a patch, in a pack or beside it. Path or branch literals in YAML. |
 | A feature Archon lacks | the owner | A workaround built by any agent. The agent stops and reports the missing feature to the owner. |
 | Live runs and gate answers | the owner, or a lead on the owner's word | `archon workflow run` without `--dry-run`, `--exec-code`, `archon setup` and gate answers, by `workflow-builder`. |
-| Loading a pack | the "Loading the pack" row of `rebuild-finish-archon-native-design.md`: `--workflow-source` on this repository | Any write to `~/.archon/`. An install script. |
+| Loading a pack | the "Loading the pack" row of `feature-pipeline-finish-design.md`: `--workflow-source` on this repository | Any write to `~/.archon/`. An install script. |
 
 ## Order
 
