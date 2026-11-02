@@ -35,7 +35,7 @@ inputs:
 nodes:
   - id: baseline
     bash: |
-      cmd=$INPUTS.full_check
+      cmd="$INPUTS_FULL_CHECK"
       out=$(bash -c "$cmd" 2>&1)
       rc=$?
       tail=$(printf '%s' "$out" | tail -c 4000)
@@ -62,7 +62,7 @@ nodes:
       nodes:
         - id: sync
           bash: |
-            git merge --no-edit $INPUTS.land_branch >&2 && exit 0
+            git merge --no-edit "$INPUTS_LAND_BRANCH" >&2 && exit 0
             rc=$?
             if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
               git diff --name-only --diff-filter=U
@@ -99,7 +99,7 @@ nodes:
           depends_on: [build]
           trigger_rule: all_done
           bash: |
-            cmd=$INPUTS.full_check
+            cmd="$INPUTS_FULL_CHECK"
             out=$(bash -c "$cmd" 2>&1)
             rc=$?
             tail=$(printf '%s' "$out" | tail -c 4000)
@@ -148,4 +148,4 @@ nodes:
 
   - id: land
     depends_on: [cycle]
-    bash: git -C $INPUTS.land_checkout merge --ff-only $INPUTS.branch
+    bash: git -C "$INPUTS_LAND_CHECKOUT" merge --ff-only "$INPUTS_BRANCH"
