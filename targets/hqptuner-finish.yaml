@@ -1,0 +1,9 @@
+env:
+  HQP_MAIN: /home/atom/dev/hqptuner2                 # checkout holding v2
+  HQP_BRANCH: rebuild/integrate
+  HQP_LAND: v2
+  HQP_DESIGN: docs/superpowers/specs/rebuild-integrate-design.md
+  HQP_GATE_FULL: make check
+  HQP_GATE_SECTION: node --import ./tests/js/support/vendor-resolve.js --test
+  HQP_NEVER_COMMIT: "uv.lock CHANGELOG.md"           # pathspecs never staged
+  HQP_LEDGER: rebuild-finish/hqptuner                # archon state document
