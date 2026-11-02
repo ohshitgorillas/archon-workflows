@@ -1,0 +1,23 @@
+exec-code: true
+fixture:
+  expect: completed
+  reached: [rounds, plan, cite, prosecute, round, verdict]
+  inputs: { design: docs/d.md, scope: "u1", survey: "gate tail", carry: "none" }
+  resolved-text-contains:
+    prosecute: '"line":3,"quote":"gamma line three"'
+    round: '"line":2,"quote":"omega line none","reason":"quote not found"'
+    verdict: '"next":"plan","cuts":1,"specs":0'
+plan:
+  steps:
+    - id: c1
+      unit: u1
+      kind: code
+      paths: [src/a.py]
+      check: "make check-a"
+      blocked_by: []
+      cites:
+        - { path: .archon/workflows/feature-pipeline/plan-review/fixtures/cites.txt, line: 1, quote: "alpha line one" }
+        - { path: .archon/workflows/feature-pipeline/plan-review/fixtures/cites.txt, line: 4, quote: "gamma line three" }
+        - { path: .archon/workflows/feature-pipeline/plan-review/fixtures/cites.txt, line: 2, quote: "omega line none" }
+  decisions: []
+prosecute: { verdict: pass, findings: [] }

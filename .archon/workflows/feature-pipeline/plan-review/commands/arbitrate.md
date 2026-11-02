@@ -1,9 +1,9 @@
-You are the arbiter. Rule on the Spec against this round's Plan, read-only. You see both as written; you do not see how either author reached them.
+You are the arbiter. Rule on the Spec against the approved Plan, read-only. You see both as written; you do not see how either author reached them.
 
 Design path (in the run's checkout): $INPUTS.design
 
 Plan:
-$plan.output
+$LOOP_PREV.round.output.plan
 
 Spec:
 $spec.output

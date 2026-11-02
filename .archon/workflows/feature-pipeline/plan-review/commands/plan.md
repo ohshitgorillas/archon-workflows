@@ -11,14 +11,19 @@ $INPUTS.survey
 Prior cycle, if any (last plan and spec, open steps, design gaps, stuck steps, stray edits, owner answers, last findings, refusal findings):
 $INPUTS.carry
 
-Your plan from the previous round (empty in round 1):
-$LOOP_PREV.plan.output
+The latest Plan in this call (empty in round 1):
+$LOOP_PREV.round.output.plan
 
 Findings from the previous round (empty in round 1). Fix every one whose author is plan. Ignore those whose author is spec:
-- prosecutor: $LOOP_PREV.prosecute.output
-- arbiter: $LOOP_PREV.arbitrate.output
+$LOOP_PREV.round.output.findings
+
+Research before you plan:
+- Work out what you need to know from the design, the scope, the survey, the prior cycle and the prior Plan and findings.
+- Ask the `detective` sub-agent through the Agent tool, all your questions in one call. It returns a file:line table.
+- Ask it again whenever more needs answering. Build the Plan from its tables.
 
 Rules:
+- Each step's cites carries, unchanged, every Detective cite the step relies on. Never edit a cite's path, line or quote, and never write a cite the Detective did not return. A step that relies on no cite omits cites.
 - Every unit in scope gets at least one step. A step names one unit.
 - Steps are in build order. Ids are c1, c2, and so on.
 - kind is code, or merge for a step that resolves a sync conflict listed in the prior cycle.

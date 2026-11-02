@@ -5,8 +5,10 @@ Design path (in the run's checkout): $INPUTS.design
 Design steps in scope; each is a unit key:
 $INPUTS.scope
 
-Plan:
-$plan.output
+Plan, each cite already checked against its quote and its line corrected:
+$cite.output.plan
+
+Never check, correct or rule on a cite's line. A cite that could not be resolved reaches the planner without you.
 
 Check, and file a finding for every failure:
 - Every unit in scope has a step. A unit outside the scope has none.

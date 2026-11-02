@@ -1,10 +1,13 @@
 name: plan-review
 description: >-
   Building block, include only; not for a standalone run. One planning stage before any
-  build: the planner cuts the code steps, the specifier writes the test spec against that
-  Plan and cuts the test steps, the prosecutor rules on the Plan and the arbiter on the
-  Spec against the Plan. At most 2 rounds. Returns the last Plan and Spec, a verdict of
-  pass or refused, the findings and the decisions that survived review.
+  build, strictly in order: the planner cuts the code steps from the Detective's file:line
+  answers, a citation resolver checks and corrects every cite, and the prosecutor rules on
+  the Plan; only on a pass does the specifier write the test spec against that approved
+  Plan, measuring through the Examiner on a throwaway copy, and the arbiter rule on the
+  Spec. An arbiter finding against the Plan reopens it. At most 4 Plan attempts and 4 Spec
+  attempts per call. Returns the last Plan and Spec, a verdict of pass or refused, the
+  findings and the decisions that survived review.
 provider: claude
 model: claude-opus-5-5
 effort: medium
@@ -30,17 +33,38 @@ returns: verdict
 nodes:
   - id: rounds
     loop_group:
-      max_iterations: 2
+      max_iterations: 8
       until_bash: |
-        p=$prosecute.output.verdict
-        a=$arbitrate.output.verdict
-        [ "$p" = pass ] && [ "$a" = pass ]
+        n=$round.output.next
+        [ "$n" = done ] || [ "$n" = refused ]
       nodes:
         - id: plan
           command: plan
+          when: "$LOOP_PREV.round.output.next != 'spec'"
           context: fresh
           mutates_checkout: false
-          allowed_tools: [Read, Grep, Glob]
+          allowed_tools: [Read, Grep, Glob, Agent]
+          agents:
+            detective:
+              description: Answers the planner's questions from the checkout as a path:line Table
+              prompt: |
+                You are the Detective, a reader. The planner hands you its questions all at
+                once. Answer each one from the checkout and return one Table.
+
+                - Read, Grep and Glob are your only tools. You write nothing and run nothing.
+                - Every answer carries at least one cite. A cite is an object with path (the
+                  repository-relative file), line (1-based) and quote (that line's text,
+                  copied verbatim). Never cite a line you have not read.
+                - Never re-check or argue a line number; a resolver downstream checks every
+                  cite against its quote.
+                - A question you cannot answer from the tree gets status unresolved, with the
+                  reason in answer, and the closest cite you found. Never guess.
+
+                Return JSON only, in this shape:
+                {"rows": [{"question": "...", "answer": "...",
+                           "cites": [{"path": "...", "line": 1, "quote": "..."}],
+                           "status": "answered" or "unresolved"}]}
+              tools: [Read, Grep, Glob]
           output_format:
             type: object
             properties:
@@ -62,6 +86,15 @@ nodes:
                     blocked_by:
                       type: array
                       items: { type: string }
+                    cites:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          path: { type: string }
+                          line: { type: integer, minimum: 1 }
+                          quote: { type: string, minLength: 1 }
+                        required: [path, line, quote]
                   required: [id, unit, kind, paths, check, blocked_by]
               decisions:
                 type: array
@@ -76,9 +109,34 @@ nodes:
                   required: [id, question, recommend, alternative, cost]
             required: [steps, decisions]
 
+        - id: cite
+          script: cite
+          runtime: uv
+          depends_on: [plan]
+          mutates_checkout: false
+          timeout: 60000
+          with:
+            plan: $plan.output
+          output_format:
+            type: object
+            properties:
+              plan: { type: object }
+              unresolved:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    step: { type: string }
+                    path: { type: string }
+                    line: { type: integer }
+                    quote: { type: string }
+                    reason: { type: string }
+                  required: [step, path, line, quote, reason]
+            required: [plan, unresolved]
+
         - id: prosecute
           command: prosecute
-          depends_on: [plan]
+          depends_on: [cite]
           context: fresh
           mutates_checkout: false
           allowed_tools: [Read, Grep, Glob]
@@ -101,10 +159,37 @@ nodes:
 
         - id: spec
           command: spec
-          depends_on: [plan]
+          when: "$LOOP_PREV.round.output.next == 'spec'"
           context: fresh
           mutates_checkout: false
-          allowed_tools: [Read, Grep, Glob]
+          allowed_tools: [Read, Grep, Glob, Agent]
+          sandbox:
+            enabled: true
+            network:
+              allowedDomains: []
+              allowManagedDomainsOnly: true
+          agents:
+            examiner:
+              description: Measures behavior with a script on a throwaway copy of the checkout
+              prompt: |
+                You are the Examiner. The specifier hands you one measurement (the behavior a
+                Spec line's assertion pins) and a scratch directory. Measure it and return
+                the result.
+
+                - Copy the checkout's tracked and unignored untracked files (the list from
+                  git ls-files -co --exclude-standard) into a fresh directory under the
+                  scratch directory, and work only in that copy. Never write to the checkout.
+                - Run every command under timeout and nice, with at most half of nproc jobs.
+                  You have no network.
+                - Write the smallest script that measures the behavior, run it, and keep its
+                  output.
+                - A measurement you cannot make gets status unresolved, with the reason in
+                  value. Never guess a value.
+
+                Return JSON only, in this shape:
+                {"question": "...", "value": "...", "script": "...", "output": "...",
+                 "status": "measured" or "unresolved"}
+              tools: [Read, Grep, Glob, Bash, Write, Edit]
           output_format:
             type: object
             properties:
@@ -192,13 +277,62 @@ nodes:
 
         - id: round
           depends_on: [prosecute, arbitrate]
+          trigger_rule: all_done
           mutates_checkout: false
           bash: |
-            plan=$plan.output
+            cite=$cite.output
             prosecute=$prosecute.output
             spec=$spec.output
             arbitrate=$arbitrate.output
-            jq -n --argjson plan "$plan" --argjson prosecute "$prosecute" --argjson spec "$spec" --argjson arbitrate "$arbitrate" '{plan: $plan, prosecute: $prosecute, spec: $spec, arbitrate: $arbitrate}'
+            prev=$LOOP_PREV.round.output
+            [ -n "$cite" ] || cite=null
+            [ -n "$prosecute" ] || prosecute=null
+            [ -n "$spec" ] || spec=null
+            [ -n "$arbitrate" ] || arbitrate=null
+            [ -n "$prev" ] || prev=null
+            jq -nc --argjson resolved "$cite" --argjson ruling "$prosecute" --argjson written "$spec" --argjson arbiter "$arbitrate" --argjson last "$prev" '
+              ($last // {}) as $p
+              | ($p.cuts // 0) as $cuts
+              | ($p.specs // 0) as $specs
+              | if $ruling != null then
+                  ($resolved.unresolved | map({
+                    author: "plan",
+                    target: .step,
+                    cause: "\(.path):\(.line): \(.reason)",
+                    fix: "cite the line whose text is the quote",
+                    design_it_in: false
+                  })) as $uncited
+                  | {
+                      next: (if $ruling.verdict == "pass" and ($uncited | length) == 0 then "spec" else "plan" end),
+                      cuts: ($cuts + 1),
+                      specs: $specs,
+                      plan: $resolved.plan,
+                      spec: ($p.spec // null),
+                      findings: ($ruling.findings + $uncited + (($p.findings // []) | map(select(.author == "spec"))))
+                    }
+                else
+                  {
+                    next: (if $arbiter.verdict == "pass" then "done"
+                           elif any($arbiter.findings[]; .author == "plan") then "plan"
+                           else "spec" end),
+                    cuts: $cuts,
+                    specs: ($specs + 1),
+                    plan: $p.plan,
+                    spec: $written,
+                    findings: $arbiter.findings
+                  }
+                end
+              | if (.next == "plan" and .cuts >= 4) or (.next == "spec" and .specs >= 4) then .next = "refused" else . end'
+          output_format:
+            type: object
+            properties:
+              next: { type: string, enum: [plan, spec, done, refused] }
+              cuts: { type: integer }
+              specs: { type: integer }
+              plan: { type: object }
+              spec: { type: [object, 'null'] }
+              findings: { type: array, items: { type: object } }
+            required: [next, cuts, specs, plan, spec, findings]
 
   - id: verdict
     depends_on: [rounds]
@@ -206,14 +340,13 @@ nodes:
     bash: |
       round=$rounds.output
       printf '%s' "$round" | jq '
-        (.prosecute.findings + .arbitrate.findings) as $found
-        | ($found | map(.target)) as $failed
+        (.findings | map(.target)) as $failed
         | {
-            verdict: (if .prosecute.verdict == "pass" and .arbitrate.verdict == "pass" then "pass" else "refused" end),
+            verdict: (if .next == "done" then "pass" else "refused" end),
             plan: .plan,
-            spec: .spec,
-            findings: $found,
-            decisions: ((.plan.decisions + .spec.decisions) | unique_by(.id) | map(select(.id as $d | ($failed | index($d)) == null)))
+            spec: (.spec // {}),
+            findings: .findings,
+            decisions: ((.plan.decisions + (.spec.decisions // [])) | unique_by(.id) | map(select(.id as $d | ($failed | index($d)) == null)))
           }'
     output_format:
       type: object
