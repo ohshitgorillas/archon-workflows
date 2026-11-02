@@ -15,7 +15,7 @@ spec:
   decisions: []
 arbitrate: { verdict: pass, findings: [] }
 round: '{"plan":{"steps":[],"decisions":[]},"prosecute":{"verdict":"pass","findings":[]},"spec":{"lines":[],"helpers":[],"steps":[],"decisions":[]},"arbitrate":{"verdict":"pass","findings":[]}}'
-plan__verdict: { verdict: pass, plan: { steps: [] }, spec: { lines: [] }, findings: [], decisions: [] }
+planning__verdict: { verdict: pass, plan: { steps: [] }, spec: { lines: [] }, findings: [], decisions: [] }
 build__before: ""
 write: { step_id: c1, paths: [src/a.py], check: "make check-a", design_gap: null }
 check: { status: green, tail: ok }

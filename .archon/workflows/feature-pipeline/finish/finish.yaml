@@ -53,7 +53,7 @@ nodes:
     loop_group:
       max_iterations: 4
       until_bash: |
-        v=$plan.output.verdict
+        v=$planning.output.verdict
         g=$gate.output.status
         p=$bail.output.pin
         o=$bail.output.open
@@ -71,7 +71,7 @@ nodes:
               exit $rc
             fi
 
-        - id: plan
+        - id: planning
           include: plan-review
           depends_on: [sync]
           with:
@@ -81,7 +81,7 @@ nodes:
               Full-check tail of the previous cycle (empty on the first cycle): $LOOP_PREV.gate.output
               Baseline full-check tail: $baseline.output
             carry: |
-              Previous plan-review result (plan, spec, findings, verdict): $LOOP_PREV.plan.output
+              Previous plan-review result (plan, spec, findings, verdict): $LOOP_PREV.planning.output
               Previous build result (remaining, stuck, design gaps, stray edits): $LOOP_PREV.build.output
               Previous pin check: $LOOP_PREV.bail.output
               Owner answer: $LOOP_PREV.ask.output
@@ -89,11 +89,11 @@ nodes:
 
         - id: build
           include: build-loop
-          depends_on: [plan]
-          when: "$plan.output.verdict == 'pass'"
+          depends_on: [planning]
+          when: "$planning.output.verdict == 'pass'"
           with:
-            plan: $plan.output.plan
-            spec: $plan.output.spec
+            plan: $planning.output.plan
+            spec: $planning.output.spec
 
         - id: gate
           depends_on: [build]

@@ -15,7 +15,7 @@ spec:
   decisions: []
 arbitrate: { verdict: pass, findings: [] }
 round: '{"plan":{"steps":[],"decisions":[]},"prosecute":{"verdict":"pass","findings":[]},"spec":{"lines":[],"helpers":[],"steps":[],"decisions":[]},"arbitrate":{"verdict":"pass","findings":[]}}'
-plan__verdict: { verdict: refused, plan: { steps: [] }, spec: { lines: [] }, findings: [{ author: plan, target: c1, cause: x, fix: y, design_it_in: false }], decisions: [{ id: d1, question: q, recommend: r, alternative: a, cost: c }] }
+planning__verdict: { verdict: refused, plan: { steps: [] }, spec: { lines: [] }, findings: [{ author: plan, target: c1, cause: x, fix: y, design_it_in: false }], decisions: [{ id: d1, question: q, recommend: r, alternative: a, cost: c }] }
 gate: { status: green, tail: ok }
 bail: { pin: ok, findings: [], open: 1, decisions: [{ id: d1, question: q, recommend: r, alternative: a, cost: c }], question: "Decision d1: q. Recommend r; alternative a; cost c." }
 land: ""

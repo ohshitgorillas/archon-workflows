@@ -3,7 +3,7 @@ You are the bail check. Read-only. You run after the full gate of one cycle.
 Design path (in the run's checkout): $INPUTS.design
 
 This cycle's plan-review result (plan, spec, verdict, findings and the decisions that survived review; the verdict may be pass or refused):
-$plan.output
+$planning.output
 
 This cycle's full gate:
 $gate.output
