@@ -2,13 +2,13 @@ Status: approved.
 
 ## Why
 
-`workflow-builder` is the one agent that writes Archon workflow folders in `/home/atom/dev/archon-workflows`. The tree holds one pack, `feature-pipeline/` at the repository root. Each concern the role shares with the rest of the repository has a home or a copy:
+`workflow-builder` is the one agent that writes Archon workflow folders in `/home/atom/dev/archon-workflows`. A pack lives at `.archon/workflows/<pack>/`, each workflow folder at `.archon/workflows/<pack>/<workflow>/`, Archon's packaged layout. The repository has one pack, `feature-pipeline`, whose home is `.archon/workflows/feature-pipeline/`; the tree still holds its workflow folders in `feature-pipeline/` at the repository root, a copy the Order of `feature-pipeline-finish-design.md` moves into that home. Each concern the role shares with the rest of the repository has a home or a copy:
 
 1. **Archon facts.** Their one home is `docs/reference/archon/`; the repository keeps no separate file of host facts. The Opal behaviors that break a workflow silently live in the role row's `why` and `never`: the sandbox fences Bash only, and relative globs do nothing; a tier model such as `small` fails until `archon setup`; the Claude sandbox needs `socat`, which is absent.
 2. **Pack check.** Its home is the "Checking the pack" row of `docs/superpowers/specs/feature-pipeline-finish-design.md`, which also gives each step its done-check. `validate workflows` takes a workflow name, not a path, and resolves names from the discovery scopes. A repository's `.archon/workflows/` is a scope from its root; a temporary `ARCHON_HOME` breaks both checks. `archon workflow test` runs no provider and checks wiring only.
 3. **Fixtures.** Fixtures are the only check that runs a workflow's routes without a live run.
 4. **Who writes workflow folders.** The `feature-pipeline` design gives each workflow folder to `workflow-builder`.
-5. **Pack layout.** A workflow folder holds exactly one YAML file plus its own `commands/` and `fixtures/`. The pack's code is Archon nodes; its home is the "Pack code" row of `feature-pipeline-finish-design.md`. The pack is loaded with `--workflow-source`.
+5. **Pack layout.** A pack's only location is `.archon/workflows/<pack>/`; a pack or workflow folder at the repository root or anywhere else is forbidden. A workflow folder holds exactly one YAML file plus its own `commands/` and `fixtures/`. The pack's code is Archon nodes; its home is the "Pack code" row of `feature-pipeline-finish-design.md`. The pack is loaded with `--workflow-source`.
 
 ## Modules
 
@@ -19,12 +19,12 @@ Status: approved.
 name: workflow-builder
 scope: >
   Archon workflow folders in /home/atom/dev/archon-workflows. Builds and revises
-  <pack>/<workflow>/ against the pack design file the brief names. Packs in this
-  repository only; no other repository's .archon/.
+  .archon/workflows/<pack>/<workflow>/ against the pack design file the brief
+  names. Packs in this repository only; no other repository's .archon/.
 writes:
-  - <pack>/<workflow>/<workflow>.yaml
-  - <pack>/<workflow>/commands/*.md
-  - <pack>/<workflow>/fixtures/*.stubs.yaml
+  - .archon/workflows/<pack>/<workflow>/<workflow>.yaml
+  - .archon/workflows/<pack>/<workflow>/commands/*.md
+  - .archon/workflows/<pack>/<workflow>/fixtures/*.stubs.yaml
 reads:
   - the pack design file under docs/superpowers/specs/ that the brief names
   - docs/reference/archon/ by grep -n and sed -n, never whole; the only source
@@ -34,6 +34,9 @@ bash:
   - archon validate workflows|commands, archon workflow list, archon workflow test
   - archon workflow run --dry-run --stubs <file> (never --exec-code)
   - git status, git diff, git log, git show, git add <own paths>, git commit
+  - git mv (tracked) or mv (untracked) of a root-level <pack>/<workflow>/ folder
+    to .archon/workflows/<pack>/<workflow>/, only where the pack design's Order
+    step names that move
   - read-only ls, cat, head, tail, sed -n, grep, wc
 model: sonnet
 effort: medium
@@ -46,7 +49,11 @@ why: >
   done-check is Archon's own validate and fixture test, not pytest. A general
   implementer carries none of this.
 never:
-  - writes <pack>/.shared/, <pack>/<workflow>/scripts/, tests/, a Python module
+  - writes a pack or workflow folder outside .archon/workflows/<pack>/<workflow>/,
+    a feature-pipeline/ folder at the repository root among them; the root-level
+    copy moves only by the git mv or mv the pack design's Order step names
+  - writes .archon/workflows/<pack>/.shared/,
+    .archon/workflows/<pack>/<workflow>/scripts/, tests/, a Python module
     or script, an install script, README.md, docs/reference/, docs/superpowers/,
     ~/.archon/, a file of host facts
   - writes a checker script or runs any done-check other than the pack design's
@@ -94,8 +101,8 @@ pass, all of:
 |---|---|---|
 | Archon language, CLI and behavior | `docs/reference/archon/` | A copy of a reference page. A file of host facts, in this repository or beside it. |
 | Checking a pack | the "Checking the pack" row of `feature-pipeline-finish-design.md`, and its done-check | A checker script. Any other done-check for a workflow folder. The check's commands restated in a role file or design. |
-| Workflow folders `<pack>/<workflow>/` | `workflow-builder` | Any other agent writing them. An Order step giving them to another agent. |
-| Route checks | `<pack>/<workflow>/fixtures/*.stubs.yaml` | A workflow folder with no fixture. A fixture with `exec-code: true`. |
+| Workflow folders `.archon/workflows/<pack>/<workflow>/` | `workflow-builder` | Any other agent writing them. An Order step giving them to another agent. A pack or workflow folder anywhere else, a `feature-pipeline/` folder at the repository root among them. |
+| Route checks | `.archon/workflows/<pack>/<workflow>/fixtures/*.stubs.yaml` | A workflow folder with no fixture. A fixture with `exec-code: true`. |
 | Pack code | the "Pack code" row of `feature-pipeline-finish-design.md`: Archon nodes | `.shared/`, `scripts/`, a Python module or script, an MCP server or a patch, in a pack or beside it. Path or branch literals in YAML. |
 | A feature Archon lacks | the owner | A workaround built by any agent. The agent stops and reports the missing feature to the owner. |
 | Live runs and gate answers | the owner, or a lead on the owner's word | `archon workflow run` without `--dry-run`, `--exec-code`, `archon setup` and gate answers, by `workflow-builder`. |
