@@ -62,9 +62,13 @@ nodes:
       nodes:
         - id: sync
           bash: |
-            if ! git merge --no-edit $INPUTS.land_branch >/dev/null 2>&1; then
+            git merge --no-edit $INPUTS.land_branch >&2 && exit 0
+            rc=$?
+            if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
               git diff --name-only --diff-filter=U
               git merge --abort
+            else
+              exit $rc
             fi
 
         - id: plan
