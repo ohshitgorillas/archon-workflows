@@ -2,31 +2,31 @@ Status: proposed.
 
 ## Why
 
-HQPTuner's rebuild-integrate refactor has four steps left: 12a, 12b, 12c and 13 (`hqptuner2/docs/superpowers/specs/rebuild-integrate-design.md:122-129`; every `hqptuner2/` path is under `/home/atom/dev/hqptuner2`). This pack carries them to the end in the worktree `/home/atom/dev/hqptuner2/.claude/worktrees/integrate`, on `rebuild/integrate`, without anyone watching. The loop also builds the pack core it runs on, as its first stages. It halts only on a product choice that has no recommended answer and no basis in the merged code or the approved documents.
+HQPTuner's rebuild-integrate refactor has four steps left: 12a, 12b, 12c and 13 (in `hqptuner2/docs/superpowers/specs/rebuild-integrate-design.md`; every `hqptuner2/` path is under `/home/atom/dev/hqptuner2`). This pack carries them to the end in the worktree `/home/atom/dev/hqptuner2/.claude/worktrees/integrate`, on `rebuild/integrate`, without anyone watching. The loop also builds the pack core it runs on, as its first stages. It halts only on a product choice that has no recommended answer and no basis in the merged code or the approved documents.
 
 What the tree holds for this today, and the copies a new workflow would otherwise make:
 
-- **Gate invocation, 3 forms.** The core target sets `gate = ["make", "check"]` (`hqptuner-archon-workflow-design.md:30`, at HEAD). HQPTuner runs every gate through `scripts/gate.sh` and needs `PYTHONPATH=$(pwd)` in a worktree (`hqptuner2/CLAUDE.md:57`, `:74`). Its queue writes the JS check out by hand (`hqptuner2/docs/queue.md:344`). Each of the three misses something the others hold.
-- **Progress record, 2 places, neither complete.** The queue marks only `landed 7` and `landed 11` (`hqptuner2/docs/queue.md:3-4`). It has no section for 12a, 12b, 12c or 13. Its step-12 section is cut as `port` dispatches, which 12a forbids until the baseline is green (`hqptuner2/docs/queue.md:344`, `rebuild-integrate-design.md:122-129`). The baseline log it keeps is under `/tmp` (`hqptuner2/docs/queue.md:344`), which does not survive a reboot.
-- **Worktree handling.** The core cuts and removes every tree it uses (`hqptuner-archon-workflow-design.md:55-70`, at HEAD). The integrate worktree holds uncommitted work that 12a must keep (`rebuild-integrate-design.md:122-129`). It also holds an untracked `uv.lock` and an untracked copy of `rebuild-integrate-design.md` that is byte-identical to the copy `v2` tracks. That untracked copy makes a merge of `v2` refuse.
-- **Commit rule.** HQPTuner requires `make check` green before every commit (`hqptuner2/CLAUDE.md:56`). The owner's ruling lets a dispatch commit on a red tree when its own section is green. Pre-commit still runs, unbypassed (`hqptuner2/CLAUDE.md:56`). Nothing in either repository defines "section green".
-- **Pack core not built.** The only tracked pack file is `feature-pipeline/feature/feature.yaml` with its fixtures. The core modules (`hqptuner-archon-workflow-design.md:19-154`, at HEAD) do not exist yet. The loop builds them in `finish-bootstrap` before any finish stage runs.
-- **Shared code stays inside one pack.** `.shared/` is shared within one pack only (`docs/reference/archon/workflow-language.md:50`). So these workflows go in `feature-pipeline/` and build on its core.
-- **Sandbox needs `socat`, which is absent.** The sandbox covers Bash only and needs `socat` (`docs/host-facts.md:10`). The core's `install.py` refuses when `socat` is missing (`hqptuner-archon-workflow-design.md:154`, at HEAD). So no writing role in this design gets Bash.
+- **Gate invocation, 3 forms.** The core target sets `gate = ["make", "check"]`. HQPTuner runs every gate through `scripts/gate.sh` and needs `PYTHONPATH=$(pwd)` in a worktree. Its queue writes the JS check out by hand. Each of the three misses something the others hold.
+- **Progress record, 2 places, neither complete.** The queue marks only `landed 7` and `landed 11`. It has no section for 12a, 12b, 12c or 13. Its step-12 section is cut as `port` dispatches, which 12a forbids until the baseline is green. The baseline log it keeps is under `/tmp`, which does not survive a reboot.
+- **Worktree handling.** The core cuts and removes every tree it uses. The integrate worktree holds uncommitted work that 12a must keep. It also holds an untracked `uv.lock` and an untracked copy of `rebuild-integrate-design.md` that is byte-identical to the copy `v2` tracks. That untracked copy makes a merge of `v2` refuse.
+- **Commit rule.** HQPTuner requires `make check` green before every commit. The owner's ruling lets a dispatch commit on a red tree when its own section is green. Pre-commit still runs, unbypassed. Nothing in either repository defines "section green".
+- **Pack core not built.** The only tracked pack file is `feature-pipeline/feature/feature.yaml` with its fixtures. The core modules do not exist yet. The loop builds them in `finish-bootstrap` before any finish stage runs.
+- **Shared code stays inside one pack.** `.shared/` is shared within one pack only. So these workflows go in `feature-pipeline/` and build on its core.
+- **Sandbox needs `socat`, which is absent.** The sandbox covers Bash only and needs `socat`. The core's `install.py` refuses when `socat` is missing. So no writing role in this design gets Bash.
 - **Step 13 is not a fast-forward.** `v2` is 2 commits ahead of `rebuild/integrate` (`def39bff`, `d16b9dee`). Both branches touch `.pre-commit-config.yaml`, `CLAUDE.md` and `docs/spec/faceplate.md`. Merging `v2` is a routine step, and a resolver stage takes any conflict.
-- **Plan and test review, 2 forms in the core, neither mechanical.** The core reviews a plan with `feature-prosecute` rounds (`hqptuner-archon-workflow-design.md:177`, at HEAD) and a spec with the Arbiter (`:181`), both agent judgments. Nothing checks a cut for gaps, duplicates, cycles, fence breaches or false quotes before writers run.
-- **Decision 1 is settled.** A dial that times out with no answer is inconclusive, `address_found: null` (`hqptuner2/docs/superpowers/specs/rebuild-integrate-design.md:131-133`). Backend-fields already serves `null`, so no code change follows from it. Any api.md text that states the value (`:89`) is written as `null`.
+- **Plan and test review, 2 forms in the core, neither mechanical.** The core reviews a plan with `feature-prosecute` rounds and a spec with the Arbiter, both agent judgments. Nothing checks a cut for gaps, duplicates, cycles, fence breaches or false quotes before writers run.
+- **Decision 1 is settled.** A dial that times out with no answer is inconclusive, `address_found: null`. Backend-fields already serves `null`, so no code change follows from it. Any api.md text that states the value is written as `null`.
 
 ## Modules
 
-All paths are under `feature-pipeline/` unless they start at the repository root. Each module below extends a core module or adds a new one. Every concern in the core's Homes table (`hqptuner-archon-workflow-design.md:213-227`, at HEAD) still holds.
+All paths are under `feature-pipeline/` unless they start at the repository root. Each module below extends a core module or adds a new one. Every concern in the core's Homes table still holds.
 
 **`targets/hqptuner.toml`** (extended): adds the gate wrapper, the worktree environment, the owner-only paths, the never-commit paths and one queue run. Its values:
 
 ```toml
 gate_wrap = ["scripts/gate.sh"]
 worktree_env = { PYTHONPATH = "{tree}" }          # {tree} is the tree's root, filled by target.py
-owner_only = []                                   # the changelog and user-facing text paths of hqptuner2/CLAUDE.md:10, :58
+owner_only = []                                   # the changelog and user-facing text paths of hqptuner2/CLAUDE.md
 never_commit = ["uv.lock"]
 
 [queue_run.rebuild-finish]
@@ -227,7 +227,7 @@ The driver binds `lines` to the `queue` tree's working files and to the queue ru
 - **Launch.** The loop is started by copying `feature-pipeline/finish-bootstrap/` and `feature-pipeline/finish-bootstrap-part/` into `~/.archon/workflows/feature-pipeline/` and running `archon workflow run finish-bootstrap`. These two folders are the only copies into `~/.archon/workflows/` that `install.py` does not make. The bootstrap's own install later removes both.
 - **Tree.** A `bash:` node adds the worktree `/home/atom/.archon/finish-bootstrap/tree` on branch `finish/core`, cut from `main`. A restarted run reuses it.
 - **Specs.** Before any part, a spec agent node (opus; Read, Grep, Glob) returns the test specs of every part at once: per part, its test files and its claims, each claim with the design `path:line` it rests on; and the shared fixtures, each with one file under `tests/` and built by the first part that uses it. A reviewer agent node (opus; Read, Grep, Glob) then gets only the two design files and the specs. It returns findings of overlapping tests, structure built for one claim, and claims the designs do not state. Findings go back to the spec node, with 2 attempts. After that, the run ends as `fault`.
-- **Parts.** One part per core step, built to the core design's text, in its order: `hqptuner-archon-workflow-design.md:234-239`, `:242-245`, `:248`, at HEAD. `interface.py` (`:237`) is built so that `fence.protected()` imports `interface.INTERFACE_DIR`; no other module defines that constant. `request.md` (`:238`) is a part with no test files: per-part nodes 1 and 2 and the test checks of node 4 do not run for it. The core's live-run gate between phases holds for its workflow steps, not for these modules. Then this design's extensions follow, one part each, in this order:
+- **Parts.** One part per core step, built to the core design's text, in the order of `hqptuner-archon-workflow-design.md` at HEAD. `interface.py` is built so that `fence.protected()` imports `interface.INTERFACE_DIR`; no other module defines that constant. `request.md` is a part with no test files: per-part nodes 1 and 2 and the test checks of node 4 do not run for it. The core's live-run gate between phases holds for its workflow steps, not for these modules. Then this design's extensions follow, one part each, in this order:
   1. `targets/hqptuner.toml` and `target.py`: the new keys and `wrapped`.
   2. `trees.py`: `RECORDS`, `CommitRefused`, `adopt`, `status`, `merge_in`, `finish_merge`, `clear_untracked_copy`, `with_reverted`, and the `commit` refusals.
   3. `harness.py` and `run_tests_mcp.py`: `run_js_tests` through `wrapped`, `run_gate`, and `--tree`.
@@ -309,7 +309,7 @@ Rules the driver applies at every node:
 
 ## Order
 
-Each step starts once the step before it is committed. `packcheck.py` is each step's done-check (`docs/superpowers/specs/workflow-builder-design.md:89`). The `.shared/` modules, `targets/` and `install.py` are not Order steps. `finish-bootstrap` writes them when the loop runs.
+Each step starts once the step before it is committed. `packcheck.py` is each step's done-check. The `.shared/` modules, `targets/` and `install.py` are not Order steps. `finish-bootstrap` writes them when the loop runs.
 
 1. `pyproject.toml`, `uv.lock`: `pytest` and `pyyaml` added to the `dev` group and locked | `builder`
 2. `feature-pipeline/finish-bootstrap/`, `feature-pipeline/finish-bootstrap-part/` | a fresh `workflow-builder`

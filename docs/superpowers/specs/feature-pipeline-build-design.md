@@ -2,23 +2,23 @@ Status: proposed.
 
 ## Why
 
-Phase 1 of `feature-pipeline` is `.archon/workflows/feature-pipeline/feature/feature.yaml:1-242`: planner, prosecutor, plan gate, spec writer, Arbiter, spec gate, reading the run's working directory in place and writing nothing (`feature.yaml:5-13`). It ends at `spec-rejected` (`feature.yaml:238-242`) with an approved spec and no code. Phases 2 and 3 build, check and land the code, using Archon's own nodes and no scripts, libraries or wrappers. What they share, and the copies or gaps already present:
+Phase 1 of `feature-pipeline` is `.archon/workflows/feature-pipeline/feature/feature.yaml`: planner, prosecutor, plan gate, spec writer, Arbiter, spec gate, reading the run's working directory in place and writing nothing. It ends at `spec-rejected` with an approved spec and no code. Phases 2 and 3 build, check and land the code, using Archon's own nodes and no scripts, libraries or wrappers. What they share, and the copies or gaps already present:
 
-1. **Base commit.** Phase 1 reads the checkout in place, so what it read is that checkout's `HEAD` at run start; no node records it. A writing child run with `isolation: worktree` is cut from `origin/<baseBranch>`, not from the parent's checkout (`docs/reference/archon/workflow-language.md:2112`), with the base resolved from repo config or the remote's HEAD (`docs/reference/archon/cli.md:445-452`). In `~/dev/hqptuner2` local `v2` is 46 commits ahead of `origin/v2` (`git rev-list --count origin/v2..v2`). See Archon gap 1.
-2. **Target facts.** Phase 1 needs none. Phases 2 and 3 need the target's test paths, how to run one test, its gate and its protected paths. No copy exists yet; none may be a literal in the pack (`docs/superpowers/specs/workflow-builder-design.md:52-53`). Provisioning a fresh checkout is Archon's `worktree.postCreate` in the target's `.archon/config.yaml` (`docs/reference/archon/worktrees.md:32-44`); `~/dev/hqptuner2` has no `.archon/` and no setup target (`~/dev/hqptuner2/Makefile:1`, `:141`).
-3. **Write fences.** The sandbox fences Bash only; Edit and Write pass through it; it cannot start without `socat`, which is absent; there is no per-node path allow-list (`docs/host-facts.md:8-10`). See Archon gap 2.
-4. **Round loops.** Two copies of loop, verdict and cancel: `feature.yaml:23-108` and `feature.yaml:123-225`. Phases 2 and 3 add two more. Each loop's gate reads its inner nodes' outputs, which an `include:` block hides (`workflow-language.md:1727-1729`); the shape stays inline per loop, each with its own schema.
-5. **Approval gates.** Two copies of wait plus cancel-on-reject: `feature.yaml:110-121`, `feature.yaml:227-242`, the form Archon documents (`docs/reference/archon/approval-nodes.md:212`). Phase 3 adds the merge gate in the same form.
-6. **Test discipline.** The first target requires new tests to fail against pre-change code (`~/dev/hqptuner2/docs/spec/testing.md:43`), never edited to pass, with a red after implementation going back to the owner (`~/dev/hqptuner2/CLAUDE.md:30`), and commits that pass the target's hooks with no bypass (`~/dev/hqptuner2/CLAUDE.md:56`).
-7. **Cleanup.** A child worktree is not removed when the child ends (`workflow-language.md:2133`) and nothing merges it back (`workflow-language.md:2127`).
+1. **Base commit.** Phase 1 reads the checkout in place, so what it read is that checkout's `HEAD` at run start; no node records it. A writing child run with `isolation: worktree` is cut from `origin/<baseBranch>`, not from the parent's checkout, with the base resolved from repo config or the remote's HEAD. In `~/dev/hqptuner2` local `v2` is 46 commits ahead of `origin/v2` (`git rev-list --count origin/v2..v2`). See Archon gap 1.
+2. **Target facts.** Phase 1 needs none. Phases 2 and 3 need the target's test paths, how to run one test, its gate and its protected paths. No copy exists yet; none may be a literal in the pack. Provisioning a fresh checkout is Archon's `worktree.postCreate` in the target's `.archon/config.yaml`; `~/dev/hqptuner2` has no `.archon/` and no setup target.
+3. **Write fences.** The sandbox fences Bash only; Edit and Write pass through it; it cannot start without `socat`, which is absent; there is no per-node path allow-list. See Archon gap 2.
+4. **Round loops.** Two copies of loop, verdict and cancel in `feature.yaml`, one for the plan and one for the spec. Phases 2 and 3 add two more. Each loop's gate reads its inner nodes' outputs, which an `include:` block hides; the shape stays inline per loop, each with its own schema.
+5. **Approval gates.** Two copies of wait plus cancel-on-reject in `feature.yaml`, the plan gate and the spec gate, the form Archon documents. Phase 3 adds the merge gate in the same form.
+6. **Test discipline.** The first target requires new tests to fail against pre-change code, never edited to pass, with a red after implementation going back to the owner, and commits that pass the target's hooks with no bypass.
+7. **Cleanup.** A child worktree is not removed when the child ends and nothing merges it back.
 
 ## Modules
 
-**`.archon/workflows/feature-pipeline/feature/feature.yaml`**: the parent run. Keeps phase 1 as built; adds the target inputs, a `base` node, the `build` child launch, the cancels on a failed build, the merge gate and the land. Runs in the target checkout with `worktree.enabled: false` (`feature.yaml:11-12`); its agents never write.
+**`.archon/workflows/feature-pipeline/feature/feature.yaml`**: the parent run. Keeps phase 1 as built; adds the target inputs, a `base` node, the `build` child launch, the cancels on a failed build, the merge gate and the land. Runs in the target checkout with `worktree.enabled: false`; its agents never write.
 
 ```yaml
 inputs:
-  request:   { required: true }   # as built, feature.yaml:15-17
+  request:   { required: true }   # as built
   tests:     { required: true, description: JSON array of repo-relative test path prefixes. }
   test_cmds: { required: true, description: >-
       JSON object, file suffix -> argv array; "{file}" and "{name}" in an element are
@@ -31,7 +31,7 @@ nodes:
     # prints {"sha": <git rev-parse HEAD>, "branch": <git branch --show-current>}
     output_format: { sha: string, branch: string }
 
-  # read-request .. spec-rejected: unchanged (feature.yaml:20-242)
+  # read-request .. spec-rejected: unchanged
 
   - id: build           # phase 2
     depends_on: [spec-gate, spec-rejected, base]
@@ -135,14 +135,14 @@ nodes:
 | Landing | `feature` node `land` | A push, a PR, a merge or reset in the target checkout by any other node. |
 | Scaffolding | none | A `scripts/` or `commands/` file, a `.shared/` module, an install, check or wrapper script, in any workflow of the pack. A workaround for an Archon gap below. |
 | Struck items | nowhere | A request judge, base worktree, tests worktree, stubs or interface view in any workflow of the pack. |
-| Workflow checks | `archon validate workflows <name>` and `archon workflow test feature-pipeline` from the repository root (`docs/host-facts.md:25`) | Any other done-check for a workflow folder. |
+| Workflow checks | `archon validate workflows <name>` and `archon workflow test feature-pipeline` from the repository root | Any other done-check for a workflow folder. |
 
-Unmeasured, settled by the first live run: whether `isolation: worktree` under `worktree.enabled: false` cuts a child as under `--no-worktree` (`workflow-language.md:2169`); whether the child's cut needs a reachable remote (`cli.md:451-454`); whether `archon complete` runs from inside a run; the `test_cmds` and `worktree.postCreate` values for `~/dev/hqptuner2`.
+Unmeasured, settled by the first live run: whether `isolation: worktree` under `worktree.enabled: false` cuts a child as under `--no-worktree`; whether the child's cut needs a reachable remote; whether `archon complete` runs from inside a run; the `test_cmds` and `worktree.postCreate` values for `~/dev/hqptuner2`.
 
 ## Archon gaps
 
-1. **No isolated child on a local commit.** `isolation: worktree` cuts from `origin/<baseBranch>` resolved by config or the remote's HEAD, and parent `--base`/`--from` do not reach the child (`workflow-language.md:2112`, `cli.md:461-465`). Phase 1 read local `HEAD`; in `~/dev/hqptuner2` that is 46 commits past `origin/v2`. Until this is closed the build runs on a tree phase 1 did not read, and `land` refuses because the build head does not descend from the checked-out branch.
-2. **No write fence for Edit and Write.** The sandbox fences Bash only, needs the absent `socat`, and no node takes a path allow-list (`docs/host-facts.md:8-10`). Nothing in Archon stops `write-tests` writing outside the tests prefixes, or `implement` editing a test or a protected path; the prompts say so and `review` reads the diff, nothing enforces it.
+1. **No isolated child on a local commit.** `isolation: worktree` cuts from `origin/<baseBranch>` resolved by config or the remote's HEAD, and parent `--base`/`--from` do not reach the child. Phase 1 read local `HEAD`; in `~/dev/hqptuner2` that is 46 commits past `origin/v2`. Until this is closed the build runs on a tree phase 1 did not read, and `land` refuses because the build head does not descend from the checked-out branch.
+2. **No write fence for Edit and Write.** The sandbox fences Bash only, needs the absent `socat`, and no node takes a path allow-list. Nothing in Archon stops `write-tests` writing outside the tests prefixes, or `implement` editing a test or a protected path; the prompts say so and `review` reads the diff, nothing enforces it.
 
 ## Order
 
