@@ -2,7 +2,7 @@ exec-code: true
 fixture:
   expect: completed
   inputs: { design: docs/d.md, scope: "12a", full_check: "make check", branch: feat, land_branch: main, land_checkout: /tmp/land }
-  reached: [baseline, cycle, sync, gate, bail, ask]
+  reached: [baseline, cycle, sync, gate, bail, tally, ask]
 baseline: { status: green, tail: ok }
 sync: ""
 plan:

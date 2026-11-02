@@ -2,7 +2,7 @@ exec-code: true
 fixture:
   expect: completed
   inputs: { design: docs/d.md, scope: "12a", full_check: "make check", branch: feat, land_branch: main, land_checkout: /tmp/land }
-  reached: [baseline, cycle, sync, gate, bail, land]
+  reached: [baseline, cycle, sync, gate, bail, tally, land]
 baseline: { status: green, tail: ok }
 sync: ""
 plan:
@@ -17,6 +17,9 @@ planning__verdict:
   spec: { lines: [], helpers: [], steps: [], decisions: [] }
   findings: []
   decisions: []
+  recalled: false
+  approval: { state: none, text: "" }
+  key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 build__before: ""
 write: { step_id: c1, paths: [src/a.py], check: "make check-a", design_gap: null }
 check: { status: green, tail: ok }

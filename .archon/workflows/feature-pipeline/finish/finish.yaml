@@ -53,12 +53,8 @@ nodes:
     loop_group:
       max_iterations: 4
       until_bash: |
-        v=$planning.output.verdict
-        g=$gate.output.status
-        p=$bail.output.pin
-        o=$bail.output.open
-        r=$build.output.remaining
-        [ "$v" = pass ] && [ "$g" = green ] && [ "$p" = ok ] && [ "$o" = 0 ] && [ "$r" = 0 ]
+        d=$tally.output.done
+        [ "$d" = true ]
       nodes:
         - id: sync
           bash: |
@@ -82,7 +78,7 @@ nodes:
               Baseline full-check tail: $baseline.output
             carry: |
               Previous plan-review result (plan, spec, findings, verdict): $LOOP_PREV.planning.output
-              Previous build result (remaining, stuck, design gaps, stray edits): $LOOP_PREV.build.output
+              Previous build result (remaining, stuck, design gaps, stray edits): $LOOP_PREV.tally.output.build
               Previous pin check: $LOOP_PREV.bail.output
               Owner answer: $LOOP_PREV.ask.output
               Conflicted paths from the sync just run: $sync.output
@@ -140,8 +136,45 @@ nodes:
               question: { type: string }
             required: [pin, findings, open, decisions, question]
 
-        - id: ask
+        - id: tally
+          runtime: uv
           depends_on: [bail]
+          trigger_rule: all_done
+          mutates_checkout: false
+          timeout: 60000
+          with:
+            verdict: $planning.output.verdict
+            gate: $gate.output.status
+            pin: $bail.output.pin
+            open: $bail.output.open
+            build: { from: $build.output, if_skipped: null }
+          script: |
+            import json
+            import os
+
+            verdict = os.environ["INPUTS_VERDICT"]
+            gate = os.environ["INPUTS_GATE"]
+            pin = os.environ["INPUTS_PIN"]
+            opened = json.loads(os.environ["INPUTS_OPEN"])
+            build = json.loads(os.environ["INPUTS_BUILD"])
+            done = (
+                verdict == "pass"
+                and gate == "green"
+                and pin == "ok"
+                and opened == 0
+                and build is not None
+                and build["remaining"] == 0
+            )
+            print(json.dumps({"done": done, "build": build}, separators=(",", ":")))
+          output_format:
+            type: object
+            properties:
+              done: { type: boolean }
+              build: { type: [object, "null"] }
+            required: [done, build]
+
+        - id: ask
+          depends_on: [tally]
           when: "$bail.output.open > 0"
           wait:
             attention: $bail.output.question
