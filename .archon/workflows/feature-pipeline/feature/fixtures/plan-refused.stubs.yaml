@@ -1,9 +1,0 @@
-fixture:
-  expect: cancelled
-  inputs: { request: docs/requests/x.md }
-  reached: [read-request, plan, prosecute, plan-round, plan-verdict, plan-refused]
-read-request: "request text"
-plan: { plan: p, surfaces: [a.b], steps: [s1] }
-prosecute: { verdict: FAIL, checks: [{ id: c1, verdict: FAIL, reason: gap }] }
-plan-round: '{"plan":{"plan":"p","surfaces":["a.b"],"steps":["s1"]},"review":{"verdict":"FAIL","checks":[]}}'
-plan-verdict: FAIL

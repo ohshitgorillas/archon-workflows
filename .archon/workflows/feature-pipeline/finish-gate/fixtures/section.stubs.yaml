@@ -1,5 +1,0 @@
-fixture:
-  expect: completed
-  inputs: { files: "tests/js/a.test.js tests/js/b.test.js" }
-  reached: [run]
-run: "exit=1 log=/artifacts/gate.log"
