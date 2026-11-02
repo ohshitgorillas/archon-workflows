@@ -1,4 +1,4 @@
-Status: approved.
+Status: proposed.
 
 ## Why
 
@@ -122,7 +122,12 @@ def run_gate(tree: str, run_id: str, argv: list[str] | None = None) -> GateResul
 def chosen(run_id: str, step: str, choice: str, reason: str) -> None: ...
 def progress(run_id: str, step: str, item: str, state: Literal["started", "green", "parked", "failed"], commit: str | None = None) -> None: ...
 def park(run_id: str, step: str, item: str, ask: "stoprule.Ask") -> None: ...
-def read(run_id: str) -> list[dict]: ...
+def read(run_id: str) -> list[dict]: ...   # the lines as dicts, in file order
+# every line: {"ts": "<UTC ISO-8601 to the second, Z suffix>", "run_id": str, "event": "chosen" | "progress" | "park", "step": str, ...}
+#   chosen:   + "choice": str, "reason": str
+#   progress: + "item": str, "state": "started" | "green" | "parked" | "failed", "commit": str | None
+#   park:     + "item": str, "ask": {"question", "product", "recommend", "basis", "merge_conflict"}
+# no other key and no other event
 ```
 
 **`.shared/stoprule.py`** (new): pure functions. They decide whether a stage's question halts the run. Every stage answer that raises a question carries an `Ask`. Stages are told to recommend whenever the approved documents, the queue run's `settled` table or the merged code give a basis.
@@ -217,12 +222,12 @@ The driver binds `lines` to the `queue` tree's working files and to the queue ru
 | `finish-resolve` | resolver, opus | Read, Grep, Glob, Edit, Write | `{resolved[], asks[]}`; resolves only the merge's conflict hunks |
 | `finish` | none with tools; tool-less judges only | none | `{outcome: landed\|halted\|fault, landed_commit, record}`; `outcome_field: outcome` |
 
-**`finish-bootstrap/finish-bootstrap.yaml`**: the loop's first stages, and its only part that exists before the loop runs. It has to exist because every other finish workflow imports `.shared/` and is installed by `install.py`, and neither exists until the loop builds them. It holds no logic beyond the nodes below. It builds the pack core and this design's extensions in this repository, installs the pack, and starts `finish`. It runs before `.shared/` exists, so it uses only Archon's own `bash:` and agent nodes. Until `install.py` exists, it is the one home for `git`, `pytest` and `packcheck` runs.
+**`finish-bootstrap/finish-bootstrap.yaml`** and **`finish-bootstrap-part/finish-bootstrap-part.yaml`**: the loop's first stages, and its only part that exists before the loop runs. They have to exist because every other finish workflow imports `.shared/` and is installed by `install.py`, and neither exists until the loop builds them. `finish-bootstrap` holds the tree, specs, part-driver, record, land, install and start nodes. `finish-bootstrap-part` holds the per-part nodes once, and runs as its own Archon run for each part. Both YAML files are written by hand and are their own source; no generator produces them, and no node set is repeated per part. They hold no logic beyond the nodes below. Together they build the pack core and this design's extensions in this repository, land them, install the pack, and start `finish`. They run before `.shared/` exists, so they use only Archon's own `bash:` and agent nodes. Until `install.py` exists, they are the one home for `git`, `pytest` and `packcheck` runs.
 
-- **Launch.** The loop is started by copying `feature-pipeline/finish-bootstrap/` to `~/.archon/workflows/feature-pipeline/finish-bootstrap/` and running `archon workflow run finish-bootstrap`. This is the only copy into `~/.archon/workflows/` that `install.py` does not make. The bootstrap's own install later replaces it.
+- **Launch.** The loop is started by copying `feature-pipeline/finish-bootstrap/` and `feature-pipeline/finish-bootstrap-part/` into `~/.archon/workflows/feature-pipeline/` and running `archon workflow run finish-bootstrap`. These two folders are the only copies into `~/.archon/workflows/` that `install.py` does not make. The bootstrap's own install later removes both.
 - **Tree.** A `bash:` node adds the worktree `/home/atom/.archon/finish-bootstrap/tree` on branch `finish/core`, cut from `main`. A restarted run reuses it.
 - **Specs.** Before any part, a spec agent node (opus; Read, Grep, Glob) returns the test specs of every part at once: per part, its test files and its claims, each claim with the design `path:line` it rests on; and the shared fixtures, each with one file under `tests/` and built by the first part that uses it. A reviewer agent node (opus; Read, Grep, Glob) then gets only the two design files and the specs. It returns findings of overlapping tests, structure built for one claim, and claims the designs do not state. Findings go back to the spec node, with 2 attempts. After that, the run ends as `fault`.
-- **Parts.** One part per core step, built to the core design's text, in its order: `hqptuner-archon-workflow-design.md:234-236`, `:239`, `:242-245`, `:248`, at HEAD. The core's live-run gate between phases holds for its workflow steps, not for these modules. Then this design's extensions follow, one part each, in this order:
+- **Parts.** One part per core step, built to the core design's text, in its order: `hqptuner-archon-workflow-design.md:234-239`, `:242-245`, `:248`, at HEAD. `interface.py` (`:237`) is built so that `fence.protected()` imports `interface.INTERFACE_DIR`; no other module defines that constant. `request.md` (`:238`) is a part with no test files: per-part nodes 1 and 2 and the test checks of node 4 do not run for it. The core's live-run gate between phases holds for its workflow steps, not for these modules. Then this design's extensions follow, one part each, in this order:
   1. `targets/hqptuner.toml` and `target.py`: the new keys and `wrapped`.
   2. `trees.py`: `RECORDS`, `CommitRefused`, `adopt`, `status`, `merge_in`, `finish_merge`, `clear_untracked_copy`, `with_reverted`, and the `commit` refusals.
   3. `harness.py` and `run_tests_mcp.py`: `run_js_tests` through `wrapped`, `run_gate`, and `--tree`.
@@ -232,8 +237,9 @@ The driver binds `lines` to the `queue` tree's working files and to the queue ru
   7. `section.py`, with `red_on_assertion` and `reverts_red`.
   8. `cutcheck.py`.
 
-  Each part names its module paths and its test files under `tests/`.
-- **Per part, in this order:**
+  `finish-bootstrap/parts.json` lists every part once, in build order: its id, the design lines it builds, and its module paths. The spec node assigns each part its test files under `tests/`. Whether `packcheck.py` accepts a JSON data file in a workflow folder is unmeasured.
+- **Part driver.** A `bash:` node in `finish-bootstrap` runs `finish-bootstrap-part` once per part, in `parts.json` order: `archon workflow run finish-bootstrap-part --cwd /home/atom/.archon/finish-bootstrap/tree --no-worktree --detach --json --input part=<id> --input spec=<that part's specs, as JSON>`, then `archon workflow wait <id>`, then `archon workflow get <id> --json`. The part run returns `{status: green|fault, commit}`. A part run that does not return `green` ends the bootstrap as `fault`. A part with a `green` progress line in the record is skipped, so a restarted run resumes at the first part not green.
+- **Per part, in `finish-bootstrap-part`, in this order:**
   1. A test-writer agent node (sonnet; Read, Grep, Glob, Edit, Write) writes the part's test files and any shared fixture the specs assign to the part, from the specs only.
   2. A `bash:` node requires those tests to fail. Where the part's modules exist at its start, each failure is a failed assertion, not a collection, import or syntax error.
   3. A builder agent node (sonnet; same tools) writes the part's module paths.
@@ -241,13 +247,13 @@ The driver binds `lines` to the `queue` tree's working files and to the queue ru
   5. A `bash:` node checks that each agent changed only its own paths.
   6. A `bash:` node commits those paths by name. Pre-commit runs unbypassed.
 
-  A failing check feeds its output back to the node that wrote the files, with 2 attempts per node. After that, the run ends as `fault`. No agent node has Bash.
-- **Record.** The bootstrap writes `CHOSEN` and progress lines to `/home/atom/.archon/feature-run/records/bootstrap.jsonl`, in `record.py`'s shape. That path is `trees.RECORDS`.
-- **Install.** Once every part is committed, `uv run install.py hqptuner --workflows finish finish-plan finish-adjudicate finish-review finish-audit finish-repair finish-build finish-port finish-resolve` runs from the tree.
-- **Land.** If `main` has not moved, `finish/core` lands on `main` with `--ff-only`, and only when `main`'s uncommitted changes touch none of the landed files. If `main` has moved, `main` is merged into `finish/core`. A resolver agent node (opus) takes any conflict and logs it as `CHOSEN`. Every part's tests run again, then the fast-forward follows. Nothing is pushed.
-- **Start.** The last node starts `finish` through `stage.run_stage`.
+  A failing check feeds its output back to the node that wrote the files, with 2 attempts per node. After that, the part run returns `fault`. No agent node has Bash. Every `uv run` here and in `finish-bootstrap` takes its tools from the `dev` group of `pyproject.toml`, with no `--with`.
+- **Record.** `finish-bootstrap` is the only writer of `/home/atom/.archon/feature-run/records/bootstrap.jsonl`, which is `trees.RECORDS/<run_id>.jsonl` for `run_id` `bootstrap`. Each line has the shape under `record.py`, with `step` `finish-bootstrap`. Progress lines carry `item` the part id, or `land`, `install` or `start`: `started` before each, then `green` with its commit, or `failed`. Each conflict the Land resolver takes is a `chosen` line.
+- **Land.** Once every part is green, and before Install: if `main` has not moved, `finish/core` lands on `main` with `--ff-only`, and only when `main`'s uncommitted changes touch none of the landed files. If `main` has moved, `main` is merged into `finish/core`. A resolver agent node (opus) takes any conflict and logs it as `CHOSEN`. Every part's tests run again, then the fast-forward follows. Nothing is pushed.
+- **Install.** After Land, an inline `bash:` node runs `uv run install.py hqptuner --workflows finish finish-plan finish-adjudicate finish-review finish-audit finish-repair finish-build finish-port finish-resolve` from the tree. It replaces `~/.archon/workflows/feature-pipeline/`, which removes both launch copies. So Install and Start are inline `bash:` nodes and read no file under the launch copies. Whether Archon reads a running workflow's YAML after its start is unmeasured.
+- **Start.** The last node, an inline `bash:` node, runs Python with the installed pack's `~/.archon/workflows/feature-pipeline/.shared/` as its import root, so `target.load()` reads the installed `target.toml`. It calls `trees.adopt("queue", "rebuild-finish")`, then `stage.run_stage("finish", "queue", {})`, and returns `finish`'s outcome as the bootstrap's own. A binding made by `adopt` holds only in its own process, so `finish`'s adopt node binds the tree again.
 
-**`finish/finish.yaml`**: the driver. It runs in the target repo with `worktree.enabled: false`. Its nodes, in order:
+**`finish/finish.yaml`**: the driver. It runs in the `queue` tree with `worktree.enabled: false`. Its nodes, in order:
 
 1. **adopt**: `trees.adopt("queue", "rebuild-finish")`. Records `trees.status("queue")`. Keeps every uncommitted change.
 2. **plan**: `finish-plan`. Then `harness.run_gate("queue", run_id, check)` on `baseline_files`; the exact file list and the durable log go to the record. Then `finish-audit` mode `sites` for every retired-shape site.
@@ -288,10 +294,11 @@ Rules the driver applies at every node:
 | Gate wrapper, worktree `PYTHONPATH`, queue-run facts, owner-only and never-commit paths | `targets/hqptuner.toml`, read through `.shared/target.py`; applied by `target.wrapped` | `scripts/gate.sh`, `PYTHONPATH`, a worktree path or a branch name in any workflow YAML, command or script. A gate argv built anywhere else. |
 | Adopted `queue` tree, merge-in, untracked-copy clear, commits | `.shared/trees.py` | `git merge`, `git commit`, `git rm`, `rm`, `git checkout`, `git restore`, `git stash` or `git worktree` run from any other script or YAML. `--no-verify`, `SKIP=` or `-n` anywhere. Committing a `never_commit` path. |
 | Gate runs and their logs | `harness.run_gate` | Any other `make check`, `scripts/gate.sh` or node invocation. A log under `/tmp`. |
-| Run progress and `CHOSEN` lines | `.shared/record.py`, under `trees.RECORDS` | Writes to `docs/queue.md` or any other repository file to record progress. A second record format. |
+| Run progress and `CHOSEN` lines | `.shared/record.py`, under `trees.RECORDS`, in its line shape; in the bootstrap, `finish-bootstrap` in that shape | Writes to `docs/queue.md` or any other repository file to record progress. A second record format, or a key or event the shape lacks. A record line written by `finish-bootstrap-part`. |
 | Whether a question halts | `stoprule.settle` | A `wait` node, a `blocked` status or a halt that `settle` did not return. A stage prompt that leaves `recommend` unset when the documents, `settled` or the merged code give a basis. A merge conflict sent to the owner. |
 | Decisions settled outside the design file | `settled` in the queue run of `targets/hqptuner.toml` | Re-asking a settled decision. Its value restated in a prompt or script. |
-| Building the core before the pack is installed | `finish-bootstrap` | `git`, `pytest` or `packcheck` run by any other workflow before `install.py` exists. Any other copy into `~/.archon/workflows/` than its one launch copy. |
+| Building the core before the pack is installed | `finish-bootstrap`, with `finish-bootstrap-part` for each part | `git`, `pytest` or `packcheck` run by any other workflow before `install.py` exists. Any other copy into `~/.archon/workflows/` than the two launch copies. A per-part node set repeated per part, or a workflow YAML generated from a script. A second part list beside `finish-bootstrap/parts.json`. A constant from `interface.py` defined in another module. |
+| Repository dev tools: `pytest`, `pyyaml` | the `dev` group in `pyproject.toml`, locked in `uv.lock` | `uv run --with`, or a tool version pinned in a workflow, command or script. |
 | Section green | `section.green` | A commit by a finish workflow without an empty `green` result. Any other before-and-after comparison. |
 | Mechanical plan check: coverage, order, paths, quotes, test overlap | `.shared/cutcheck.py` | A second gap, duplicate, cycle, fence or quote check. A writer stage run while `cutcheck.check` has breaches for the current plan. |
 | Adversarial plan review | `finish-review`, once per plan pass, over the whole set | A review per item. Planner reasoning, `asks` or record lines in its prompt. A writer stage run while it has findings for the current plan. |
@@ -304,11 +311,12 @@ Rules the driver applies at every node:
 
 Each step starts once the step before it is committed. `packcheck.py` is each step's done-check (`docs/superpowers/specs/workflow-builder-design.md:89`). The `.shared/` modules, `targets/` and `install.py` are not Order steps. `finish-bootstrap` writes them when the loop runs.
 
-1. `feature-pipeline/finish-bootstrap/` | a fresh `workflow-builder`
-2. `feature-pipeline/finish-plan/`, `feature-pipeline/finish-adjudicate/`, `feature-pipeline/finish-review/`, `feature-pipeline/finish-audit/` | a fresh `workflow-builder`
-3. `feature-pipeline/finish-repair/`, `feature-pipeline/finish-build/`, `feature-pipeline/finish-port/`, `feature-pipeline/finish-resolve/` | a fresh `workflow-builder`
-4. `feature-pipeline/finish/` | a fresh `workflow-builder`
+1. `pyproject.toml`, `uv.lock`: `pytest` and `pyyaml` added to the `dev` group and locked | `builder`
+2. `feature-pipeline/finish-bootstrap/`, `feature-pipeline/finish-bootstrap-part/` | a fresh `workflow-builder`
+3. `feature-pipeline/finish-plan/`, `feature-pipeline/finish-adjudicate/`, `feature-pipeline/finish-review/`, `feature-pipeline/finish-audit/` | a fresh `workflow-builder`
+4. `feature-pipeline/finish-repair/`, `feature-pipeline/finish-build/`, `feature-pipeline/finish-port/`, `feature-pipeline/finish-resolve/` | a fresh `workflow-builder`
+5. `feature-pipeline/finish/` | a fresh `workflow-builder`
 
-Steps 2 to 4 reference `.shared/` scripts that exist only after the bootstrap runs. Whether `packcheck.py` resolves those references is unmeasured.
+Steps 3 to 5 reference `.shared/` scripts that exist only after the bootstrap runs. Whether `packcheck.py` resolves those references is unmeasured.
 
-After step 4, the loop is started once with the launch copy and run described under `finish-bootstrap`. Everything after that runs unattended.
+After step 5, the loop is started once with the launch copies and run described under `finish-bootstrap`. Everything after that runs unattended.
