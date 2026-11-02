@@ -4,8 +4,10 @@ description: >-
   run's working directory), runs the plan-review block sequentially (the planner cuts the
   code steps and a prosecutor rules on them; only then the specifier writes the test spec
   against that Plan and an arbiter rules on it; 4 Plan attempts and 4 Spec attempts at
-  most) and stops for one approval over the Plan and Spec together.
-  Writes nothing. Use on a hammered-out request; not for code changes.
+  most) and stops for one approval over the Plan and Spec together; the approval is
+  skipped when a recalled Plan and Spec are already approved. Writes nothing to the
+  checkout; the owner's answer is written into the plan record under $STATE_DIR.
+  Use on a hammered-out request; not for code changes.
 provider: claude
 model: claude-opus-5-5
 effort: medium
