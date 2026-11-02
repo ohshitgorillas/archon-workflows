@@ -1,7 +1,7 @@
 exec-code: true
 fixture:
   expect: completed
-  reached: [read-request, planning__verdict, gate]
+  reached: [read-request, planning__verdict, gate, approval]
   inputs: { request: docs/requests/x.md }
 read-request: "request text"
 plan:
@@ -14,4 +14,8 @@ planning__verdict:
   spec: { lines: [], helpers: [], steps: [], decisions: [] }
   findings: []
   decisions: []
+  recalled: false
+  approval: { state: none, text: "" }
+  key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 gate: { decision: approve, text: "" }
+approval: ""

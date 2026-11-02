@@ -40,6 +40,7 @@ nodes:
   - id: gate
     depends_on: [planning, refused]
     trigger_rule: none_failed_min_one_success
+    when: "$planning.output.approval.state != 'approved'"
     wait:
       form: approval
       attention: |
@@ -54,7 +55,21 @@ nodes:
         Decisions left open:
         $planning.output.decisions
 
-  - id: rejected
+  - id: approval
     depends_on: [gate]
+    mutates_checkout: false
+    bash: |
+      set -euo pipefail
+      key=$planning.output.key
+      decision=$gate.output.decision
+      text=$gate.output.text
+      file="$STATE_DIR/feature-pipeline/plans/$key.json"
+      jq --arg decision "$decision" --arg text "$text" '
+        .approval = {state: (if $decision == "reject" then "rejected" else "approved" end), text: $text}
+      ' "$file" > "$file.tmp"
+      mv "$file.tmp" "$file"
+
+  - id: rejected
+    depends_on: [gate, approval]
     when: "$gate.output.decision == 'reject'"
     cancel: "Rejected: $gate.output.text"

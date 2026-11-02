@@ -1,0 +1,19 @@
+exec-code: true
+fixture:
+  expect: completed
+  reached: [read-request, planning__verdict]
+  inputs: { request: docs/requests/x.md }
+read-request: "request text"
+plan:
+  steps: [{ id: c1, unit: request, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+  decisions: []
+prosecute: { verdict: pass, findings: [] }
+planning__verdict:
+  verdict: pass
+  plan: { steps: [{ id: c1, unit: request, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }], decisions: [] }
+  spec: { lines: [], helpers: [], steps: [], decisions: [] }
+  findings: []
+  decisions: []
+  recalled: true
+  approval: { state: approved, text: "ok" }
+  key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
