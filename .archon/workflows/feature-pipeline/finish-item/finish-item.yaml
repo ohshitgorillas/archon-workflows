@@ -1,0 +1,304 @@
+name: finish-item
+description: >-
+  One plan item to one commit; the fan_out child of finish. Runs one writer in a loop until
+  its section is green, its fence is clean and its audit has no findings, then commits through
+  finish-commit. Returns landed, baseline_red or blocked. Not for a direct run.
+provider: claude
+model: claude-sonnet-5-5
+effort: medium
+worktree:
+  enabled: false
+
+inputs:
+  id:
+    required: true
+    description: Plan item id.
+  route:
+    required: true
+    description: repair, fixture, red_then_build, contract or port.
+  paths:
+    required: true
+    description: Space-separated files the item may write.
+  tests:
+    required: true
+    description: Space-separated test files that make the item's section.
+  spec:
+    required: true
+    description: What to change, with the claims it keeps and their quotes.
+  message:
+    required: true
+    description: Commit message.
+
+returns: result
+
+nodes:
+  - id: pre
+    include: finish-gate
+    when: "$INPUTS.route == 'port'"
+    with:
+      files: $INPUTS.tests
+
+  - id: hold
+    depends_on: [pre]
+    bash: |
+      chk=$pre.output
+      case "$chk" in
+        exit=0\ *) state=ok ;;
+        *) state=baseline_red ;;
+      esac
+      printf '%s' "$state" > "$ARTIFACTS_DIR/hold"
+      printf '%s' "$state"
+
+  - id: held
+    depends_on: [hold]
+    trigger_rule: all_done
+    bash: |
+      if [ -f "$ARTIFACTS_DIR/hold" ]; then cat "$ARTIFACTS_DIR/hold"; else printf 'ok'; fi
+
+  - id: base
+    depends_on: [held]
+    bash: |
+      snap() {
+        allow=(); for p in $1; do allow+=(":!$p"); done
+        never=(); for p in $HQP_NEVER_COMMIT; do never+=(":!$p"); done
+        git status --porcelain --untracked-files=all -- . "${allow[@]}" "${never[@]}" | while IFS= read -r line; do
+          f=${line#???}
+          printf '%s %s\n' "$line" "$(git hash-object -- "$f" 2>/dev/null)"
+        done | sort
+      }
+      snap "$INPUTS_TESTS" > "$ARTIFACTS_DIR/fence.base.red"
+      snap "$INPUTS_PATHS" > "$ARTIFACTS_DIR/fence.base.work"
+      printf 'based'
+
+  - id: red
+    depends_on: [base, held]
+    when: "$INPUTS.route == 'red_then_build' && $held.output == 'ok'"
+    loop_group:
+      max_iterations: 4
+      until_bash: |
+        chk=$red-check.output
+        fen=$red-fence.output
+        [ -z "$fen" ] || exit 1
+        case "$chk" in exit=0\ *) exit 1 ;; esac
+        log=${chk##*log=}
+        grep -q ERR_ASSERTION "$log"
+      nodes:
+        - id: write-red
+          context: fresh
+          model: claude-sonnet-5-5
+          allowed_tools: [Read, Grep, Glob, Edit, Write]
+          prompt: |
+            You write one failing test. Item $INPUTS.id. Write only these test files:
+            $INPUTS.tests
+
+            The test must fail on an assertion about the defect described below, never on an
+            import error or a syntax error. Do not touch production code.
+
+            What to change:
+            $INPUTS.spec
+
+            Last round's gate result (empty in round 1):
+            $LOOP_PREV.red-check.output
+
+            Last round's fence violations (empty in round 1):
+            $LOOP_PREV.red-fence.output
+
+        - id: red-fence
+          depends_on: [write-red]
+          bash: |
+            allow=(); for p in $INPUTS_TESTS; do allow+=(":!$p"); done
+            never=(); for p in $HQP_NEVER_COMMIT; do never+=(":!$p"); done
+            git status --porcelain --untracked-files=all -- . "${allow[@]}" "${never[@]}" | while IFS= read -r line; do
+              f=${line#???}
+              printf '%s %s\n' "$line" "$(git hash-object -- "$f" 2>/dev/null)"
+            done | sort > "$ARTIFACTS_DIR/fence.now.red"
+            diff "$ARTIFACTS_DIR/fence.base.red" "$ARTIFACTS_DIR/fence.now.red" | grep '^[<>]' || true
+
+        - id: red-check
+          depends_on: [write-red]
+          include: finish-gate
+          with:
+            files: $INPUTS.tests
+
+  - id: pin
+    depends_on: [red]
+    when: "$INPUTS.route == 'red_then_build'"
+    bash: |
+      git hash-object -- $INPUTS_TESTS > "$ARTIFACTS_DIR/pin"
+      cat "$ARTIFACTS_DIR/pin"
+
+  - id: work
+    depends_on: [base, held, red, pin]
+    trigger_rule: none_failed_min_one_success
+    when: "$held.output == 'ok'"
+    loop_group:
+      max_iterations: 4
+      until_bash: |
+        green=$round.output.green
+        blocked=$round.output.blocked
+        [ "$green" = true ] || [ "$blocked" = true ]
+      nodes:
+        - id: write
+          context: fresh
+          model: claude-sonnet-5-5
+          allowed_tools: [Read, Grep, Glob, Edit, Write]
+          prompt: |
+            You are the writer for item $INPUTS.id, mode $INPUTS.route. Write only these files:
+            $INPUTS.paths
+
+            Modes. repair: change test machinery and keep every claim and assertion. fixture:
+            write the one shared fixture or builder the spec names. red_then_build: the failing
+            test already exists and is held; fix the production defect and never edit the test.
+            contract: change a claim only as the spec's quotes establish. port: move the site
+            set onto the approved interface.
+
+            Never add a skip, relax an assertion, add a compatibility reader, change a claim
+            without its quote, change user-facing text or add a gate exemption. If the item
+            needs a product decision, make no edit and return status blocked with the question
+            in ask.
+
+            What to change:
+            $INPUTS.spec
+
+            Last round's gate result (empty in round 1):
+            $LOOP_PREV.check.output
+
+            Last round's fence violations (empty in round 1):
+            $LOOP_PREV.fence.output
+
+            Last round's audit findings (empty in round 1):
+            $LOOP_PREV.audit.output
+          output_format:
+            type: object
+            properties:
+              status: { type: string, enum: [done, blocked] }
+              ask: { type: string }
+            required: [status, ask]
+
+        - id: fence
+          depends_on: [write]
+          bash: |
+            allow=(); for p in $INPUTS_PATHS; do allow+=(":!$p"); done
+            never=(); for p in $HQP_NEVER_COMMIT; do never+=(":!$p"); done
+            git status --porcelain --untracked-files=all -- . "${allow[@]}" "${never[@]}" | while IFS= read -r line; do
+              f=${line#???}
+              printf '%s %s\n' "$line" "$(git hash-object -- "$f" 2>/dev/null)"
+            done | sort > "$ARTIFACTS_DIR/fence.now.work"
+            diff "$ARTIFACTS_DIR/fence.base.work" "$ARTIFACTS_DIR/fence.now.work" | grep '^[<>]' || true
+            if [ -f "$ARTIFACTS_DIR/pin" ]; then
+              git hash-object -- $INPUTS_TESTS | diff "$ARTIFACTS_DIR/pin" - | grep '^[<>]' || true
+            fi
+
+        - id: check
+          depends_on: [write]
+          include: finish-gate
+          with:
+            files: $INPUTS.tests
+
+        - id: changes
+          depends_on: [write]
+          bash: |
+            git diff HEAD -- $INPUTS_PATHS
+            echo "untracked:"
+            git ls-files --others --exclude-standard -- $INPUTS_PATHS
+
+        - id: audit
+          depends_on: [check, fence, changes]
+          context: fresh
+          model: claude-opus-5-5
+          allowed_tools: [Read, Grep, Glob]
+          prompt: |
+            You audit one item's change for test-change legitimacy, read-only. Item $INPUTS.id,
+            mode $INPUTS.route. The item may write only: $INPUTS.paths
+
+            Report a finding for each of: skip (a skipped or disabled test), relaxed_assertion,
+            compat_reader (a compatibility reader or shim), claim_changed (a claim changed
+            without a quote in the spec), copy (a user-facing text change), exemption (a gate
+            exemption). Give the path and line. Report nothing else; count is the number of
+            findings.
+
+            Spec with its quotes:
+            $INPUTS.spec
+
+            Change (diff against HEAD, then untracked files to Read):
+            $changes.output
+          output_format:
+            type: object
+            properties:
+              count: { type: integer }
+              findings:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    path: { type: string }
+                    line: { type: integer }
+                    kind: { type: string, enum: [skip, relaxed_assertion, compat_reader, claim_changed, copy, exemption] }
+                    text: { type: string }
+                  required: [path, line, kind, text]
+            required: [count, findings]
+
+        - id: round
+          depends_on: [write, fence, check, audit]
+          bash: |
+            wstatus=$write.output.status
+            ask=$write.output.ask
+            chk=$check.output
+            fen=$fence.output
+            cnt=$audit.output.count
+            green=false
+            blocked=false
+            if [ "$wstatus" = blocked ]; then blocked=true; fi
+            case "$chk" in
+              exit=0\ *) if [ -z "$fen" ] && [ "$cnt" = 0 ] && [ "$blocked" = false ]; then green=true; fi ;;
+            esac
+            jq -nc --argjson green "$green" --argjson blocked "$blocked" --arg ask "$ask" \
+              '{green: $green, blocked: $blocked, ask: $ask}' | tee "$ARTIFACTS_DIR/round.json"
+          output_format:
+            type: object
+            properties:
+              green: { type: boolean }
+              blocked: { type: boolean }
+              ask: { type: string }
+            required: [green, blocked, ask]
+
+  - id: verdict
+    depends_on: [work]
+    bash: |
+      jq -c '{state: (if .green then "green" else "blocked" end), ask: .ask}' "$ARTIFACTS_DIR/round.json"
+    output_format:
+      type: object
+      properties:
+        state: { type: string, enum: [green, blocked] }
+        ask: { type: string }
+      required: [state, ask]
+
+  - id: land
+    depends_on: [verdict]
+    include: finish-commit
+    when: "$verdict.output.state == 'green'"
+    with:
+      paths: $INPUTS.paths
+      message: $INPUTS.message
+
+  - id: result
+    depends_on: [held, verdict, land]
+    trigger_rule: none_failed_min_one_success
+    bash: |
+      held=$held.output
+      if [ "$held" = baseline_red ]; then
+        jq -nc '{status: "baseline_red", commit: "", ask: ""}'
+        exit 0
+      fi
+      if [ "$(jq -r .green "$ARTIFACTS_DIR/round.json")" = true ]; then
+        jq -nc --arg c "$(git rev-parse HEAD)" '{status: "landed", commit: $c, ask: ""}'
+      else
+        jq -c '{status: "blocked", commit: "", ask: .ask}' "$ARTIFACTS_DIR/round.json"
+      fi
+    output_format:
+      type: object
+      properties:
+        status: { type: string, enum: [landed, baseline_red, blocked] }
+        commit: { type: string }
+        ask: { type: string }
+      required: [status, commit, ask]

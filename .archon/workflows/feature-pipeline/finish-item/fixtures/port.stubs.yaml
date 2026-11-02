@@ -1,0 +1,17 @@
+fixture:
+  expect: completed
+  inputs: { id: i1, route: port, paths: "src/a.py tests/test_a.py", tests: "tests/test_a.py", spec: "change a", message: "fix a" }
+  reached: [pre__run, hold, held, base, write, round, verdict, land__commit, result]
+pre__run: "exit=0 log=/artifacts/gate.log"
+hold: ok
+held: ok
+base: based
+write: { status: done, ask: "" }
+fence: ""
+check__run: "exit=0 log=/artifacts/gate.log"
+changes: "diff"
+audit: { count: 0, findings: [] }
+round: '{"green":true,"blocked":false,"ask":""}'
+verdict: '{"state":"green","ask":""}'
+land__commit: "0123456789abcdef"
+result: '{"status":"landed","commit":"0123456789abcdef","ask":""}'

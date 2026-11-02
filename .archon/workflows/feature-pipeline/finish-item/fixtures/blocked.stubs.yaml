@@ -1,0 +1,14 @@
+fixture:
+  expect: completed
+  inputs: { id: i1, route: contract, paths: "src/a.py tests/test_a.py", tests: "tests/test_a.py", spec: "change a", message: "fix a" }
+  reached: [held, base, write, round, verdict, result]
+held: ok
+base: based
+write: { status: blocked, ask: "which wording?" }
+fence: ""
+check__run: "exit=0 log=/artifacts/gate.log"
+changes: "diff"
+audit: { count: 0, findings: [] }
+round: '{"green":false,"blocked":true,"ask":"which wording?"}'
+verdict: '{"state":"blocked","ask":"which wording?"}'
+result: '{"status":"blocked","commit":"","ask":"which wording?"}'
