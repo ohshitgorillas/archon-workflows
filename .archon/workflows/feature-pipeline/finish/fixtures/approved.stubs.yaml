@@ -9,12 +9,14 @@ plan:
   steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
   decisions: []
 prosecute: { verdict: pass, findings: [] }
-spec:
-  lines: []
-  helpers: []
-  steps: []
+planning__verdict:
+  verdict: pass
+  plan:
+    steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+    decisions: []
+  spec: { lines: [], helpers: [], steps: [], decisions: [] }
+  findings: []
   decisions: []
-arbitrate: { verdict: pass, findings: [] }
 build__before: ""
 write: { step_id: c1, paths: [src/a.py], check: "make check-a", design_gap: null }
 check: { status: green, tail: ok }
