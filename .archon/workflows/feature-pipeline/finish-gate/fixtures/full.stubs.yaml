@@ -1,0 +1,4 @@
+fixture:
+  expect: completed
+  reached: [run]
+run: "exit=0 log=/artifacts/gate.log"

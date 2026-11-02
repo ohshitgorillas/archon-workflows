@@ -1,0 +1,29 @@
+name: finish-commit
+description: >-
+  Support block. The one commit: stages only the given paths minus the never-commit pathspecs,
+  runs git commit so pre-commit runs, fails the node on a pre-commit failure, prints the new HEAD
+  and appends a landed event to the ledger.
+provider: claude
+model: claude-sonnet-5-5
+
+inputs:
+  paths:
+    required: true
+    description: Space-separated paths to stage.
+  message:
+    required: true
+    description: Commit message.
+
+nodes:
+  - id: commit
+    bash: |
+      set -eu
+      never=()
+      for p in $HQP_NEVER_COMMIT; do never+=(":!$p"); done
+      git add -- $INPUTS_PATHS "${never[@]}"
+      git commit -m "$INPUTS_MESSAGE"
+      head=$(git rev-parse HEAD)
+      echo "$head"
+      jq -n --arg m "$INPUTS_MESSAGE" --arg c "$head" \
+        '{ops:[{op:"append",path:"",value:{event:"landed",message:$m,commit:$c}}]}' \
+        | archon state patch "$HQP_LEDGER"

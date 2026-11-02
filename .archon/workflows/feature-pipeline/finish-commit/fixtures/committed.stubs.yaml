@@ -1,0 +1,5 @@
+fixture:
+  expect: completed
+  inputs: { paths: "a.py b.py", message: "fix a" }
+  reached: [commit]
+commit: "0123456789abcdef"
