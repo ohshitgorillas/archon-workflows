@@ -1,8 +1,0 @@
-fixture:
-  expect: cancelled
-  inputs: { request: docs/requests/x.md }
-  reached: [read-request, plan-1, prosecute-1, plan-gate, plan-rejected]
-read-request: "request text"
-plan-1: { plan: p, surfaces: [a.b], steps: [s1] }
-prosecute-1: { verdict: PASS, checks: [{ id: c1, verdict: PASS, reason: ok }] }
-plan-gate: { decision: reject, text: "no" }

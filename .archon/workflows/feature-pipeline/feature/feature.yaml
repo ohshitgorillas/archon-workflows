@@ -1,0 +1,59 @@
+name: feature
+description: >-
+  Phase 1 of the feature pipeline. Takes a request file in the target repository (the
+  run's working directory), runs the plan-review block (the planner cuts the code steps,
+  the specifier writes the test spec against that Plan, a prosecutor and an arbiter rule
+  on them, two rounds at most) and stops for one approval over the Plan and Spec together.
+  Writes nothing. Use on a hammered-out request; not for code changes.
+provider: claude
+model: claude-opus-5-5
+effort: medium
+mutates_checkout: false
+worktree:
+  enabled: false
+
+inputs:
+  request:
+    required: true
+    description: Path of the request file, relative to the run's working directory.
+
+nodes:
+  - id: read-request
+    bash: cat -- "$INPUTS_REQUEST"
+    mutates_checkout: false
+
+  - id: planning
+    include: plan-review
+    depends_on: [read-request]
+    with:
+      design: $INPUTS.request
+      scope: The whole request, as one unit.
+      survey: No full-check output; this is a new feature.
+      carry: No prior cycle.
+
+  - id: refused
+    depends_on: [planning]
+    when: "$planning.output.verdict == 'refused'"
+    cancel: "The Plan and Spec still fail review after two rounds. Findings: $planning.output.findings"
+
+  - id: gate
+    depends_on: [planning, refused]
+    trigger_rule: none_failed_min_one_success
+    wait:
+      form: approval
+      attention: |
+        Approve the Plan and the Spec?
+
+        Plan:
+        $planning.output.plan
+
+        Spec:
+        $planning.output.spec
+
+        Decisions left open:
+        $planning.output.decisions
+
+  - id: rejected
+    depends_on: [gate]
+    when: "$gate.output.decision == 'reject'"
+    cancel: "Rejected: $gate.output.text"

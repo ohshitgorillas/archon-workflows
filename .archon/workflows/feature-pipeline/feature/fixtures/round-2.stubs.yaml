@@ -1,0 +1,18 @@
+fixture:
+  expect: completed
+  reached: [read-request, planning__verdict, gate]
+  inputs: { request: docs/requests/x.md }
+read-request: "request text"
+plan:
+  steps: [{ id: c1, unit: request, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+  decisions: []
+prosecute: { verdict: pass, findings: [] }
+spec:
+  lines: [{ id: t1, step: c1, claim: cl, mark: RED, preserves: null, file: tests/test_a.py, shared: [], setup: s, assertion: x }]
+  helpers: []
+  steps: [{ id: w1, before: c1, lines: [t1], paths: [tests/test_a.py], check: "make check-t", blocked_by: [] }]
+  decisions: []
+arbitrate: { verdict: pass, findings: [] }
+round: '{"plan":{"steps":[],"decisions":[]},"prosecute":{"verdict":"pass","findings":[]},"spec":{"lines":[],"helpers":[],"steps":[],"decisions":[]},"arbitrate":{"verdict":"pass","findings":[]}}'
+planning__verdict: { verdict: pass, plan: { steps: [] }, spec: { lines: [] }, findings: [{ author: plan, target: c1, cause: "round 1: step cut by count", fix: "recut by what belongs together", design_it_in: false }], decisions: [] }
+gate: { decision: approve, text: "" }
