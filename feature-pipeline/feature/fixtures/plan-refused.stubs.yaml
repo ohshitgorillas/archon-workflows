@@ -1,0 +1,9 @@
+fixture:
+  expect: cancelled
+  inputs: { request: docs/requests/x.md }
+  reached: [read-request, plan-1, prosecute-1, plan-2, prosecute-2, plan-refused]
+read-request: "request text"
+plan-1: { plan: p, surfaces: [a.b], steps: [s1] }
+prosecute-1: { verdict: FAIL, checks: [{ id: c1, verdict: FAIL, reason: gap }] }
+plan-2: { plan: p2, surfaces: [a.b], steps: [s1] }
+prosecute-2: { verdict: FAIL, checks: [{ id: c1, verdict: FAIL, reason: gap }] }
