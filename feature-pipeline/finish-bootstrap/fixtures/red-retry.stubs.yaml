@@ -1,0 +1,123 @@
+fixture:
+  expect: completed
+  reached: [config, tree, c1-todo, c1-tw1, c1-red1, c1-b1, c1-chk1, c1-paths1, c1-commit1, c2-todo, c2-tw1, c2-red1, c2-b1, c2-chk1, c2-paths1, c2-commit1, c3-todo, c3-tw1, c3-red1, c3-tw2, c3-red2, c3-b1, c3-chk1, c3-paths1, c3-commit1, c4-todo, c4-tw1, c4-red1, c4-b1, c4-chk1, c4-paths1, c4-commit1, c5-todo, c5-tw1, c5-red1, c5-b1, c5-chk1, c5-paths1, c5-commit1, c6-todo, c6-tw1, c6-red1, c6-b1, c6-chk1, c6-paths1, c6-commit1, c7-todo, c7-tw1, c7-red1, c7-b1, c7-chk1, c7-paths1, c7-commit1, c8-todo, c8-tw1, c8-red1, c8-b1, c8-chk1, c8-paths1, c8-commit1, c9-todo, c9-tw1, c9-red1, c9-b1, c9-chk1, c9-paths1, c9-commit1, e1-todo, e1-tw1, e1-red1, e1-b1, e1-chk1, e1-paths1, e1-commit1, e2-todo, e2-tw1, e2-red1, e2-b1, e2-chk1, e2-paths1, e2-commit1, e3-todo, e3-tw1, e3-red1, e3-b1, e3-chk1, e3-paths1, e3-commit1, e4-todo, e4-tw1, e4-red1, e4-b1, e4-chk1, e4-paths1, e4-commit1, e5-todo, e5-tw1, e5-red1, e5-b1, e5-chk1, e5-paths1, e5-commit1, e6-todo, e6-tw1, e6-red1, e6-b1, e6-chk1, e6-paths1, e6-commit1, e7-todo, e7-tw1, e7-red1, e7-b1, e7-chk1, e7-paths1, e7-commit1, land-check, land, install, start]
+config: {"repo": "/r", "tree": "/t", "branch": "finish/core", "base": "main", "records": "/rec.jsonl", "run_id": "bootstrap", "installed": "/i"}
+tree: {"ok": true, "detail": "ok"}
+c1-todo: {"ok": true, "pending": true, "detail": "pending"}
+c1-tw1: "tests written"
+c1-red1: {"ok": true, "detail": "ok"}
+c1-b1: "module written"
+c1-chk1: {"ok": true, "detail": "ok"}
+c1-paths1: {"ok": true, "detail": "ok"}
+c1-commit1: {"ok": true, "detail": "ok"}
+c2-todo: {"ok": true, "pending": true, "detail": "pending"}
+c2-tw1: "tests written"
+c2-red1: {"ok": true, "detail": "ok"}
+c2-b1: "module written"
+c2-chk1: {"ok": true, "detail": "ok"}
+c2-paths1: {"ok": true, "detail": "ok"}
+c2-commit1: {"ok": true, "detail": "ok"}
+c3-todo: {"ok": true, "pending": true, "detail": "pending"}
+c3-tw1: "tests written"
+c3-red1: {"ok": false, "detail": "failed: reason"}
+c3-tw2: "tests rewritten"
+c3-red2: {"ok": true, "detail": "ok"}
+c3-b1: "module written"
+c3-chk1: {"ok": true, "detail": "ok"}
+c3-paths1: {"ok": true, "detail": "ok"}
+c3-commit1: {"ok": true, "detail": "ok"}
+c4-todo: {"ok": true, "pending": true, "detail": "pending"}
+c4-tw1: "tests written"
+c4-red1: {"ok": true, "detail": "ok"}
+c4-b1: "module written"
+c4-chk1: {"ok": true, "detail": "ok"}
+c4-paths1: {"ok": true, "detail": "ok"}
+c4-commit1: {"ok": true, "detail": "ok"}
+c5-todo: {"ok": true, "pending": true, "detail": "pending"}
+c5-tw1: "tests written"
+c5-red1: {"ok": true, "detail": "ok"}
+c5-b1: "module written"
+c5-chk1: {"ok": true, "detail": "ok"}
+c5-paths1: {"ok": true, "detail": "ok"}
+c5-commit1: {"ok": true, "detail": "ok"}
+c6-todo: {"ok": true, "pending": true, "detail": "pending"}
+c6-tw1: "tests written"
+c6-red1: {"ok": true, "detail": "ok"}
+c6-b1: "module written"
+c6-chk1: {"ok": true, "detail": "ok"}
+c6-paths1: {"ok": true, "detail": "ok"}
+c6-commit1: {"ok": true, "detail": "ok"}
+c7-todo: {"ok": true, "pending": true, "detail": "pending"}
+c7-tw1: "tests written"
+c7-red1: {"ok": true, "detail": "ok"}
+c7-b1: "module written"
+c7-chk1: {"ok": true, "detail": "ok"}
+c7-paths1: {"ok": true, "detail": "ok"}
+c7-commit1: {"ok": true, "detail": "ok"}
+c8-todo: {"ok": true, "pending": true, "detail": "pending"}
+c8-tw1: "tests written"
+c8-red1: {"ok": true, "detail": "ok"}
+c8-b1: "module written"
+c8-chk1: {"ok": true, "detail": "ok"}
+c8-paths1: {"ok": true, "detail": "ok"}
+c8-commit1: {"ok": true, "detail": "ok"}
+c9-todo: {"ok": true, "pending": true, "detail": "pending"}
+c9-tw1: "tests written"
+c9-red1: {"ok": true, "detail": "ok"}
+c9-b1: "module written"
+c9-chk1: {"ok": true, "detail": "ok"}
+c9-paths1: {"ok": true, "detail": "ok"}
+c9-commit1: {"ok": true, "detail": "ok"}
+e1-todo: {"ok": true, "pending": true, "detail": "pending"}
+e1-tw1: "tests written"
+e1-red1: {"ok": true, "detail": "ok"}
+e1-b1: "module written"
+e1-chk1: {"ok": true, "detail": "ok"}
+e1-paths1: {"ok": true, "detail": "ok"}
+e1-commit1: {"ok": true, "detail": "ok"}
+e2-todo: {"ok": true, "pending": true, "detail": "pending"}
+e2-tw1: "tests written"
+e2-red1: {"ok": true, "detail": "ok"}
+e2-b1: "module written"
+e2-chk1: {"ok": true, "detail": "ok"}
+e2-paths1: {"ok": true, "detail": "ok"}
+e2-commit1: {"ok": true, "detail": "ok"}
+e3-todo: {"ok": true, "pending": true, "detail": "pending"}
+e3-tw1: "tests written"
+e3-red1: {"ok": true, "detail": "ok"}
+e3-b1: "module written"
+e3-chk1: {"ok": true, "detail": "ok"}
+e3-paths1: {"ok": true, "detail": "ok"}
+e3-commit1: {"ok": true, "detail": "ok"}
+e4-todo: {"ok": true, "pending": true, "detail": "pending"}
+e4-tw1: "tests written"
+e4-red1: {"ok": true, "detail": "ok"}
+e4-b1: "module written"
+e4-chk1: {"ok": true, "detail": "ok"}
+e4-paths1: {"ok": true, "detail": "ok"}
+e4-commit1: {"ok": true, "detail": "ok"}
+e5-todo: {"ok": true, "pending": true, "detail": "pending"}
+e5-tw1: "tests written"
+e5-red1: {"ok": true, "detail": "ok"}
+e5-b1: "module written"
+e5-chk1: {"ok": true, "detail": "ok"}
+e5-paths1: {"ok": true, "detail": "ok"}
+e5-commit1: {"ok": true, "detail": "ok"}
+e6-todo: {"ok": true, "pending": true, "detail": "pending"}
+e6-tw1: "tests written"
+e6-red1: {"ok": true, "detail": "ok"}
+e6-b1: "module written"
+e6-chk1: {"ok": true, "detail": "ok"}
+e6-paths1: {"ok": true, "detail": "ok"}
+e6-commit1: {"ok": true, "detail": "ok"}
+e7-todo: {"ok": true, "pending": true, "detail": "pending"}
+e7-tw1: "tests written"
+e7-red1: {"ok": true, "detail": "ok"}
+e7-b1: "module written"
+e7-chk1: {"ok": true, "detail": "ok"}
+e7-paths1: {"ok": true, "detail": "ok"}
+e7-commit1: {"ok": true, "detail": "ok"}
+land-check: {"ok": true, "moved": false, "detail": "main has not moved"}
+land: {"ok": true, "detail": "abc1234"}
+install: {"ok": true, "detail": "ok"}
+start: {"status": "completed", "run_id": "r1", "reason": ""}

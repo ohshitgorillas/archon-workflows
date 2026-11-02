@@ -1,0 +1,31 @@
+fixture:
+  expect: completed
+  reached: [config, tree, c1-todo, c2-todo, c3-todo, c4-todo, c5-todo, c6-todo, c7-todo, c8-todo, c9-todo, e1-todo, e2-todo, e3-todo, e4-todo, e5-todo, e6-todo, e7-todo, e7-tw1, e7-red1, e7-b1, e7-chk1, e7-paths1, e7-commit1, land-check, land, install, start]
+config: {"repo": "/r", "tree": "/t", "branch": "finish/core", "base": "main", "records": "/rec.jsonl", "run_id": "bootstrap", "installed": "/i"}
+tree: {"ok": true, "detail": "ok"}
+c1-todo: {"ok": true, "pending": false, "detail": "committed"}
+c2-todo: {"ok": true, "pending": false, "detail": "committed"}
+c3-todo: {"ok": true, "pending": false, "detail": "committed"}
+c4-todo: {"ok": true, "pending": false, "detail": "committed"}
+c5-todo: {"ok": true, "pending": false, "detail": "committed"}
+c6-todo: {"ok": true, "pending": false, "detail": "committed"}
+c7-todo: {"ok": true, "pending": false, "detail": "committed"}
+c8-todo: {"ok": true, "pending": false, "detail": "committed"}
+c9-todo: {"ok": true, "pending": false, "detail": "committed"}
+e1-todo: {"ok": true, "pending": false, "detail": "committed"}
+e2-todo: {"ok": true, "pending": false, "detail": "committed"}
+e3-todo: {"ok": true, "pending": false, "detail": "committed"}
+e4-todo: {"ok": true, "pending": false, "detail": "committed"}
+e5-todo: {"ok": true, "pending": false, "detail": "committed"}
+e6-todo: {"ok": true, "pending": false, "detail": "committed"}
+e7-todo: {"ok": true, "pending": true, "detail": "pending"}
+e7-tw1: "tests written"
+e7-red1: {"ok": true, "detail": "ok"}
+e7-b1: "module written"
+e7-chk1: {"ok": true, "detail": "ok"}
+e7-paths1: {"ok": true, "detail": "ok"}
+e7-commit1: {"ok": true, "detail": "ok"}
+land-check: {"ok": true, "moved": false, "detail": "main has not moved"}
+land: {"ok": true, "detail": "abc1234"}
+install: {"ok": true, "detail": "ok"}
+start: {"status": "completed", "run_id": "r1", "reason": ""}
