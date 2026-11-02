@@ -1,10 +1,10 @@
 exec-code: true
 fixture:
   expect: completed
-  reached: [rounds, plan, cite, prosecute, round, verdict]
+  reached: [recall, rounds, plan, cite, prosecute, round, verdict, keep]
   inputs: { design: docs/d.md, scope: "u1", survey: "gate tail", carry: "none" }
   resolved-text-contains:
-    verdict: '"next":"plan","cuts":1,"specs":0'
+    keep: '"verdict":"refused","recalled":false,"findings":[{"author":"plan"'
 plan:
   steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
   decisions: [{ id: d1, question: q, recommend: r, alternative: a, cost: c }]

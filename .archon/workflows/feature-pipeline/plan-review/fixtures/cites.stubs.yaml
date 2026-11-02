@@ -1,12 +1,12 @@
 exec-code: true
 fixture:
   expect: completed
-  reached: [rounds, plan, cite, prosecute, round, verdict]
+  reached: [recall, rounds, plan, cite, prosecute, round, verdict, keep]
   inputs: { design: docs/d.md, scope: "u1", survey: "gate tail", carry: "none" }
   resolved-text-contains:
     prosecute: '"line":3,"quote":"gamma line three"'
     round: '"line":2,"quote":"omega line none","reason":"quote not found"'
-    verdict: '"next":"plan","cuts":1,"specs":0'
+    keep: '"findings":[{"author":"plan","target":"c1","cause":".archon/workflows/feature-pipeline/plan-review/fixtures/cites.txt:2: quote not found"'
 plan:
   steps:
     - id: c1

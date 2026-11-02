@@ -20,6 +20,14 @@ $LOOP_PREV.round.output.spec
 Findings from the previous round. Fix those whose author is spec. Those whose author is plan landed in the Plan; read them to see why the Plan changed, then write the Spec against the Plan above:
 $LOOP_PREV.round.output.findings
 
+The recalled record of an earlier planning call on this same design, scope and commit (null when there is none):
+$recall.output.record
+
+Starting from the recalled record:
+- When your latest Spec above is empty and the record is not null, start from the record's spec instead of from nothing: revise it against the Plan above, fixing every one of the record's findings whose author is spec.
+- In every round, read the record's carry beside the prior cycle above. An owner answer already given there is not asked again.
+- Never look up a record yourself; this is the only one you get.
+
 Measure before you write:
 - Decide which lines need a behavior measured, by a script or a rendered state.
 - For each, ask the `examiner` sub-agent through the Agent tool for one measurement, with the scratch directory $ARTIFACTS_DIR/.archon/scratch/spec/

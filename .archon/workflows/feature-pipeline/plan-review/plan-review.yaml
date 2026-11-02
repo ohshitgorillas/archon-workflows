@@ -1,13 +1,17 @@
 name: plan-review
 description: >-
   Building block, include only; not for a standalone run. One planning stage before any
-  build, strictly in order: the planner cuts the code steps from the Detective's file:line
-  answers, a citation resolver checks and corrects every cite, and the prosecutor rules on
-  the Plan; only on a pass does the specifier write the test spec against that approved
-  Plan, measuring through the Examiner on a throwaway copy, and the arbiter rule on the
-  Spec. An arbiter finding against the Plan reopens it. At most 4 Plan attempts and 4 Spec
-  attempts per call. Returns the last Plan and Spec, a verdict of pass or refused, the
-  findings and the decisions that survived review.
+  build. First recall looks up the plan record for this design, scope and commit: a record
+  another run wrote, that passed review and that the owner has not rejected, is reused as
+  it stands, and no round or agent runs. Otherwise, strictly in order and starting from the
+  recalled record when there is one: the planner cuts the code steps from the Detective's
+  file:line answers, a citation resolver checks and corrects every cite, and the prosecutor
+  rules on the Plan; only on a pass does the specifier write the test spec against that
+  approved Plan, measuring through the Examiner on a throwaway copy, and the arbiter rule on
+  the Spec. An arbiter finding against the Plan reopens it. At most 4 Plan attempts and 4
+  Spec attempts per call. Returns the Plan and Spec, a verdict of pass or refused, the
+  findings, the decisions that survived review, whether it was recalled, the owner's
+  approval and the record key; keep then writes that result to the plan record.
 provider: claude
 model: claude-opus-5-5
 effort: medium
@@ -31,7 +35,55 @@ inputs:
 returns: verdict
 
 nodes:
+  - id: recall
+    mutates_checkout: false
+    bash: |
+      set -euo pipefail
+      design=$INPUTS_DESIGN
+      scope=$INPUTS_SCOPE
+      if [ -f "$design" ]; then
+        blob=$(git hash-object -- "$design")
+      else
+        blob=absent
+      fi
+      head=$(git rev-parse HEAD)
+      key=$(jq -cn --arg design "$design" --arg design_blob "$blob" --arg scope "$scope" --arg head "$head" \
+        '{design: $design, design_blob: $design_blob, scope: $scope, head: $head}' | sha256sum | cut -d ' ' -f 1)
+      file="$STATE_DIR/feature-pipeline/plans/$key.json"
+      record=null
+      if [ -f "$file" ]; then
+        record=$(cat "$file")
+      fi
+      jq -cn --arg key "$key" --arg design "$design" --arg design_blob "$blob" --arg scope "$scope" --arg head "$head" \
+        --arg run "$WORKFLOW_ID" --argjson record "$record" '
+        {
+          key: $key,
+          design: $design,
+          design_blob: $design_blob,
+          scope: $scope,
+          head: $head,
+          next: (if $record != null
+                    and $record.verdict == "pass"
+                    and $record.approval.state != "rejected"
+                    and $record.run != $run
+                 then "reuse" else "rounds" end),
+          record: $record
+        }'
+    output_format:
+      type: object
+      properties:
+        key: { type: string, pattern: '^[0-9a-f]{64}$' }
+        design: { type: string }
+        design_blob: { type: string }
+        scope: { type: string }
+        head: { type: string }
+        next: { type: string, enum: [rounds, reuse] }
+        record: { type: [object, 'null'] }
+      required: [key, design, design_blob, scope, head, next, record]
+
   - id: rounds
+    depends_on: [recall]
+    when: "$recall.output.next == 'rounds'"
     loop_group:
       max_iterations: 8
       until_bash: |
@@ -335,19 +387,72 @@ nodes:
             required: [next, cuts, specs, plan, spec, findings]
 
   - id: verdict
-    depends_on: [rounds]
+    runtime: uv
+    depends_on: [recall, rounds]
+    trigger_rule: all_done
     mutates_checkout: false
-    bash: |
-      round=$rounds.output
-      printf '%s' "$round" | jq '
-        (.findings | map(.target)) as $failed
-        | {
-            verdict: (if .next == "done" then "pass" else "refused" end),
-            plan: .plan,
-            spec: (.spec // {}),
-            findings: .findings,
-            decisions: ((.plan.decisions + (.spec.decisions // [])) | unique_by(.id) | map(select(.id as $d | ($failed | index($d)) == null)))
-          }'
+    timeout: 60000
+    with:
+      recall: $recall.output
+      round: { from: $rounds.output, if_skipped: null }
+    script: |
+      import json
+      import os
+      import sys
+
+
+      def surviving(plan: dict, spec: dict, findings: list) -> list:
+          targeted = {finding.get("target") for finding in findings}
+          seen = set()
+          kept = []
+          for decision in list(plan.get("decisions") or []) + list(spec.get("decisions") or []):
+              if decision["id"] in seen:
+                  continue
+              seen.add(decision["id"])
+              if decision["id"] not in targeted:
+                  kept.append(decision)
+          return kept
+
+
+      def main() -> int:
+          recall = json.loads(os.environ["INPUTS_RECALL"])
+          last = json.loads(os.environ["INPUTS_ROUND"])
+          if last is None and recall["next"] == "reuse":
+              record = recall["record"]
+              result = {
+                  "verdict": record["verdict"],
+                  "recalled": True,
+                  "findings": record["findings"],
+                  "decisions": record["decisions"],
+                  "approval": record["approval"],
+                  "key": recall["key"],
+                  "plan": record["plan"],
+                  "spec": record["spec"],
+              }
+          elif last is not None and recall["next"] == "rounds":
+              spec = last["spec"] if last["spec"] is not None else {}
+              result = {
+                  "verdict": "pass" if last["next"] == "done" else "refused",
+                  "recalled": False,
+                  "findings": last["findings"],
+                  "decisions": surviving(last["plan"], spec, last["findings"]),
+                  "approval": {"state": "none", "text": ""},
+                  "key": recall["key"],
+                  "plan": last["plan"],
+                  "spec": spec,
+              }
+          else:
+              print(
+                  "verdict: recall.next is %r but the last round is %s"
+                  % (recall["next"], "missing" if last is None else "present"),
+                  file=sys.stderr,
+              )
+              return 1
+          print(json.dumps(result, separators=(",", ":")))
+          return 0
+
+
+      sys.exit(main())
     output_format:
       type: object
       properties:
@@ -356,4 +461,41 @@ nodes:
         spec: { type: object }
         findings: { type: array, items: { type: object } }
         decisions: { type: array, items: { type: object } }
-      required: [verdict, plan, spec, findings, decisions]
+        recalled: { type: boolean }
+        approval:
+          type: object
+          properties:
+            state: { type: string, enum: [approved, rejected, none] }
+            text: { type: string }
+          required: [state, text]
+        key: { type: string }
+      required: [verdict, plan, spec, findings, decisions, recalled, approval, key]
+
+  - id: keep
+    depends_on: [verdict]
+    mutates_checkout: false
+    bash: |
+      set -euo pipefail
+      found=$recall.output
+      answer=$verdict.output
+      key=$recall.output.key
+      carry=$INPUTS_CARRY
+      dir="$STATE_DIR/feature-pipeline/plans"
+      mkdir -p "$dir"
+      jq -n --argjson found "$found" --argjson answer "$answer" --arg run "$WORKFLOW_ID" --arg carry "$carry" '
+        {
+          key: $found.key,
+          design: $found.design,
+          design_blob: $found.design_blob,
+          scope: $found.scope,
+          head: $found.head,
+          run: $run,
+          carry: ((($found.record // {}).carry // []) + [$carry]),
+          verdict: $answer.verdict,
+          plan: $answer.plan,
+          spec: $answer.spec,
+          findings: $answer.findings,
+          decisions: $answer.decisions,
+          approval: $answer.approval
+        }' > "$dir/$key.json.tmp"
+      mv "$dir/$key.json.tmp" "$dir/$key.json"

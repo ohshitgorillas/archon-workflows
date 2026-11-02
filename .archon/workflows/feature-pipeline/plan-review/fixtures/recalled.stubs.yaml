@@ -1,0 +1,35 @@
+exec-code: true
+fixture:
+  expect: completed
+  reached: [recall, verdict, keep]
+  inputs: { design: docs/d.md, scope: "u1", survey: "gate tail", carry: "none" }
+  resolved-text-contains:
+    keep: '"verdict":"pass","recalled":true'
+recall:
+  key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+  design: docs/d.md
+  design_blob: absent
+  scope: u1
+  head: 0123456789abcdef0123456789abcdef01234567
+  next: reuse
+  record:
+    key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    design: docs/d.md
+    design_blob: absent
+    scope: u1
+    head: 0123456789abcdef0123456789abcdef01234567
+    run: another-run-id
+    carry: ["none"]
+    verdict: pass
+    plan:
+      steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+      decisions: []
+    spec:
+      lines:
+        - { id: t1, step: c1, claim: a works, mark: RED, preserves: null, file: tests/test_a.py, shared: [], setup: none, assertion: a returns 1 }
+      helpers: []
+      steps: [{ id: w1, before: c1, lines: [t1], paths: [tests/test_a.py], check: "make test-a", blocked_by: [] }]
+      decisions: []
+    findings: []
+    decisions: []
+    approval: { state: none, text: "" }

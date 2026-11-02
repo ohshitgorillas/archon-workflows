@@ -17,6 +17,15 @@ $LOOP_PREV.round.output.plan
 Findings from the previous round (empty in round 1). Fix every one whose author is plan. Ignore those whose author is spec:
 $LOOP_PREV.round.output.findings
 
+The recalled record of an earlier planning call on this same design, scope and commit (null when there is none):
+$recall.output.record
+
+Starting from the recalled record:
+- In round 1, when the record is not null, start from its plan instead of from nothing: revise it, fixing every one of its findings whose author is plan. When its approval state is rejected, the approval text is one more finding whose author is plan.
+- In every round, read the record's carry beside the prior cycle above. An owner answer already given there is not asked again.
+- From round 2 on, the latest Plan and findings above take over from the record's plan and findings.
+- Never look up a record yourself; this is the only one you get.
+
 Research before you plan:
 - Work out what you need to know from the design, the scope, the survey, the prior cycle and the prior Plan and findings.
 - Ask the `detective` sub-agent through the Agent tool, all your questions in one call. It returns a file:line table.
