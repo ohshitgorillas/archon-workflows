@@ -1,0 +1,14 @@
+fixture:
+  expect: cancelled
+  inputs: { request: docs/requests/x.md }
+  reached: [read-request, plan, prosecute, plan-round, plan-verdict, plan-gate, spec, arbiter, spec-round, spec-verdict, spec-refused]
+read-request: "request text"
+plan: { plan: p, surfaces: [a.b], steps: [s1] }
+prosecute: { verdict: PASS, checks: [{ id: c1, verdict: PASS, reason: ok }] }
+plan-gate: { decision: approve, text: "" }
+spec: { lines: [{ id: S1, behaviour: b, start: RED }] }
+arbiter: { verdict: REJECT, rulings: [{ line: S1, verdict: REJECT, reason: wide }] }
+plan-round: '{"plan":{"plan":"p","surfaces":["a.b"],"steps":["s1"]},"review":{"verdict":"PASS","checks":[]}}'
+plan-verdict: PASS
+spec-round: '{"spec":{"lines":[]},"rulings":{"verdict":"REJECT","rulings":[]}}'
+spec-verdict: REJECT

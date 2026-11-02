@@ -1,0 +1,242 @@
+name: feature
+description: >-
+  Phase 1 of the feature pipeline. Takes a request file in the target repository (the
+  run's working directory) and runs a read-only planner, a prosecutor (two rounds at
+  most), a plan approval gate, a spec writer, an Arbiter (two rounds at most) and a
+  spec approval gate. Writes nothing. Use on a hammered-out request; not for code changes.
+provider: claude
+model: claude-opus-5-5
+effort: medium
+mutates_checkout: false
+worktree:
+  enabled: false
+
+inputs:
+  request:
+    required: true
+    description: Path of the request file, relative to the run's working directory.
+
+nodes:
+  - id: read-request
+    bash: cat -- "$INPUTS_REQUEST"
+    mutates_checkout: false
+
+  - id: plan-loop
+    depends_on: [read-request]
+    loop_group:
+      max_iterations: 2
+      until_bash: |
+        verdict=$prosecute.output.verdict
+        [ "$verdict" = "PASS" ]
+      nodes:
+        - id: plan
+          context: fresh
+          mutates_checkout: false
+          allowed_tools: [Read, Grep, Glob]
+          prompt: |
+            You are the planner. Read the request and the repository in the working directory,
+            read-only, and write a plan for the feature. Plan only what the request asks.
+            Where the request leaves a decision open, name it in the plan; do not guess.
+
+            Give: the plan as prose; the surfaces it adds or changes (module and public name);
+            the ordered steps.
+
+            Request:
+            $read-request.output
+
+            Previous round's plan (empty in round 1):
+            $LOOP_PREV.plan.output
+
+            Previous round's prosecutor review (empty in round 1). When present, revise the
+            plan so every failed or unjudged check is answered and keep what passed:
+            $LOOP_PREV.prosecute.output
+          output_format:
+            type: object
+            properties:
+              plan: { type: string }
+              surfaces: { type: array, items: { type: string } }
+              steps: { type: array, items: { type: string } }
+            required: [plan, surfaces, steps]
+
+        - id: prosecute
+          depends_on: [plan]
+          context: fresh
+          mutates_checkout: false
+          allowed_tools: [Read, Grep, Glob]
+          prompt: |
+            You are the prosecutor. Attack the plan against the request and the repository,
+            read-only. Check at least: every request item is covered; every named surface and
+            file exists or is new on purpose; no step guesses a decision the request left open;
+            nothing outside the request is added. When a previous round's review is below,
+            also check that each of its failures is answered. Give each check a verdict PASS,
+            FAIL or COULD_NOT_JUDGE with a reason. The overall verdict is PASS only if every
+            check is PASS.
+
+            Request:
+            $read-request.output
+
+            Plan:
+            $plan.output
+
+            Previous round's review (empty in round 1):
+            $LOOP_PREV.prosecute.output
+          output_format:
+            type: object
+            properties:
+              verdict: { type: string, enum: [PASS, FAIL] }
+              checks:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    verdict: { type: string, enum: [PASS, FAIL, COULD_NOT_JUDGE] }
+                    reason: { type: string }
+                  required: [id, verdict, reason]
+            required: [verdict, checks]
+
+        - id: plan-round
+          depends_on: [plan, prosecute]
+          bash: |
+            plan=$plan.output
+            review=$prosecute.output
+            jq -n --argjson plan "$plan" --argjson review "$review" '{plan: $plan, review: $review}'
+
+  - id: plan-verdict
+    depends_on: [plan-loop]
+    bash: |
+      round=$plan-loop.output
+      printf '%s' "$round" | jq -r '.review.verdict'
+
+  - id: plan-refused
+    depends_on: [plan-verdict]
+    when: "$plan-verdict.output != 'PASS'"
+    cancel: "The plan still fails the prosecutor after two rounds. Last round: $plan-loop.output"
+
+  - id: plan-gate
+    depends_on: [plan-loop, plan-refused]
+    trigger_rule: none_failed_min_one_success
+    wait:
+      form: approval
+      attention: |
+        Approve the plan?
+
+        Last round (plan and prosecutor's review):
+        $plan-loop.output
+
+  - id: plan-rejected
+    depends_on: [plan-gate]
+    when: "$plan-gate.output.decision == 'reject'"
+    cancel: "Plan rejected: $plan-gate.output.text"
+
+  - id: spec-loop
+    depends_on: [plan-gate, plan-rejected]
+    trigger_rule: none_failed_min_one_success
+    loop_group:
+      max_iterations: 2
+      until_bash: |
+        verdict=$arbiter.output.verdict
+        [ "$verdict" = "ACCEPT" ]
+      nodes:
+        - id: spec
+          context: fresh
+          mutates_checkout: false
+          allowed_tools: [Read, Grep, Glob]
+          prompt: |
+            You are the spec writer. Turn the approved plan into a test spec: one line per
+            observable behaviour, ids S1, S2, and so on. Mark each line RED if it fails on
+            today's repository and GREEN if it already holds. Read-only; describe behaviour,
+            not implementation. In a later round, fix every line the Arbiter rejected and keep
+            accepted lines as they are.
+
+            Request:
+            $read-request.output
+
+            Approved plan (last round's plan and review):
+            $plan-loop.output
+
+            Owner's note on approval:
+            $plan-gate.output.text
+
+            Previous round's spec (empty in round 1):
+            $LOOP_PREV.spec.output
+
+            Previous round's Arbiter rulings (empty in round 1):
+            $LOOP_PREV.arbiter.output
+          output_format:
+            type: object
+            properties:
+              lines:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    behaviour: { type: string }
+                    start: { type: string, enum: [RED, GREEN] }
+                  required: [id, behaviour, start]
+            required: [lines]
+
+        - id: arbiter
+          depends_on: [spec]
+          context: fresh
+          allowed_tools: []
+          prompt: |
+            You are the Arbiter. You see only the request and the test spec. Rule on each spec
+            line: ACCEPT if it follows from the request and tests an observable behaviour,
+            REJECT if it asks for more or less than the request, or is not observable. Overall
+            verdict ACCEPT only if every line is ACCEPT.
+
+            Request:
+            $read-request.output
+
+            Spec:
+            $spec.output
+          output_format:
+            type: object
+            properties:
+              verdict: { type: string, enum: [ACCEPT, REJECT] }
+              rulings:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    line: { type: string }
+                    verdict: { type: string, enum: [ACCEPT, REJECT] }
+                    reason: { type: string }
+                  required: [line, verdict, reason]
+            required: [verdict, rulings]
+
+        - id: spec-round
+          depends_on: [spec, arbiter]
+          bash: |
+            spec=$spec.output
+            rulings=$arbiter.output
+            jq -n --argjson spec "$spec" --argjson rulings "$rulings" '{spec: $spec, rulings: $rulings}'
+
+  - id: spec-verdict
+    depends_on: [spec-loop]
+    bash: |
+      round=$spec-loop.output
+      printf '%s' "$round" | jq -r '.rulings.verdict'
+
+  - id: spec-refused
+    depends_on: [spec-verdict]
+    when: "$spec-verdict.output != 'ACCEPT'"
+    cancel: "The Arbiter still rejects the spec after two rounds. Last round: $spec-loop.output"
+
+  - id: spec-gate
+    depends_on: [spec-loop, spec-refused]
+    trigger_rule: none_failed_min_one_success
+    wait:
+      form: approval
+      attention: |
+        Approve the spec?
+
+        Last round (spec and Arbiter's rulings):
+        $spec-loop.output
+
+  - id: spec-rejected
+    depends_on: [spec-gate]
+    when: "$spec-gate.output.decision == 'reject'"
+    cancel: "Spec rejected: $spec-gate.output.text"

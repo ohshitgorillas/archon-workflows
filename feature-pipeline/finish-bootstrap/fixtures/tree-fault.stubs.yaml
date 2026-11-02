@@ -1,5 +1,0 @@
-fixture:
-  expect: cancelled
-  reached: [config, tree, fault-tree, fault-tree]
-config: {"repo": "/r", "tree": "/t", "branch": "finish/core", "base": "main", "records": "/rec.jsonl", "run_id": "bootstrap", "installed": "/i"}
-tree: {"ok": false, "detail": "failed: reason"}
