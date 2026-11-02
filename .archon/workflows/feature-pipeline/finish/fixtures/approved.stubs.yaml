@@ -3,6 +3,8 @@ fixture:
   expect: completed
   inputs: { design: docs/d.md, scope: "12a", full_check: "make check", branch: feat, land_branch: main, land_checkout: /tmp/land }
   reached: [baseline, cycle, sync, gate, bail, tally, land]
+  resolved-text-contains:
+    prosecute: "- Land branch: main\n- Land checkout: /tmp/land\n"
 baseline: { status: green, tail: ok }
 sync: ""
 plan:

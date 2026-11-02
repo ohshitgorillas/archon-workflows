@@ -1,6 +1,17 @@
 You are the arbiter. Rule on the Spec against the approved Plan, read-only. You see both as written; you do not see how either author reached them.
 
-Design path (in the run's checkout): $INPUTS.design
+Design: $recall.output.read
+Design source: $recall.output.from
+
+Where this run runs. These facts are fixed. Never infer them from where a file does or does not resolve.
+- Land branch: $INPUTS.land_branch
+- Land checkout: $INPUTS.land_checkout
+- Every plan check runs at build from the checkout root below, on the branch below, and from nowhere else.
+- When a land branch is named, `sync` merges it into the branch at the start of every cycle, and `land` fast-forwards the land branch to the branch in the land checkout only after planning's steps are built. No plan step lands onto the land branch, so a step whose check asserts any other branch, or cds into another checkout, cannot pass.
+- When the land branch and land checkout are empty, this run neither syncs nor lands.
+- Checkout root (absolute): $recall.output.root
+- Branch: $recall.output.branch
+- HEAD: $recall.output.head
 
 Plan:
 $LOOP_PREV.round.output.plan

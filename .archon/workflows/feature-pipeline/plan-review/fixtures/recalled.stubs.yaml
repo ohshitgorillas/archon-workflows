@@ -11,6 +11,10 @@ recall:
   design_blob: absent
   scope: u1
   head: 0123456789abcdef0123456789abcdef01234567
+  read: docs/d.md
+  from: "the run's checkout"
+  root: /tmp/checkout
+  branch: feat
   next: reuse
   record:
     key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef

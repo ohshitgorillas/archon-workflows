@@ -19,7 +19,7 @@ effort: medium
 inputs:
   design:
     required: true
-    description: Path of the design being built, in the run's checkout.
+    description: Path of the design being built, in the run's checkout, or at design_ref when absent there.
   scope:
     required: true
     description: Design steps still to build; each is a unit key.
@@ -31,6 +31,17 @@ inputs:
     description: >-
       Prior cycle: last plan and spec, open steps, design gaps, stuck steps, stray edits,
       owner answers, last findings and refusal findings.
+  design_ref:
+    default: ""
+    description: >-
+      Ref to read the design from when its path is absent from the run's checkout; empty
+      reads the checkout only.
+  land_branch:
+    default: ""
+    description: Branch the caller merges in each cycle and lands on afterwards; empty when it does not land.
+  land_checkout:
+    default: ""
+    description: Checkout holding land_branch; empty when the caller does not land.
 
 returns: verdict
 
@@ -41,11 +52,23 @@ nodes:
       set -euo pipefail
       design=$INPUTS_DESIGN
       scope=$INPUTS_SCOPE
+      ref=$INPUTS_DESIGN_REF
+      read=$design
+      from="the run's checkout"
       if [ -f "$design" ]; then
         blob=$(git hash-object -- "$design")
+      elif [ -n "$ref" ] && git cat-file -e "$ref:$design" 2>/dev/null; then
+        mkdir -p "$ARTIFACTS_DIR/design-ref"
+        read="$ARTIFACTS_DIR/design-ref/$(basename -- "$design")"
+        git show "$ref:$design" > "$read"
+        blob=$(git rev-parse "$ref:$design")
+        from="ref $ref: $design is absent from the run's checkout, so it was copied out of that ref"
       else
         blob=absent
+        from="neither the run's checkout nor a ref: read it as given"
       fi
+      root=$(git rev-parse --show-toplevel)
+      branch=$(git symbolic-ref --short -q HEAD || echo "detached HEAD")
       head=$(git rev-parse HEAD)
       key=$(jq -cn --arg design "$design" --arg design_blob "$blob" --arg scope "$scope" --arg head "$head" \
         '{design: $design, design_blob: $design_blob, scope: $scope, head: $head}' | sha256sum | cut -d ' ' -f 1)
@@ -55,13 +78,18 @@ nodes:
         record=$(cat "$file")
       fi
       jq -cn --arg key "$key" --arg design "$design" --arg design_blob "$blob" --arg scope "$scope" --arg head "$head" \
-        --arg run "$WORKFLOW_ID" --argjson record "$record" '
+        --arg run "$WORKFLOW_ID" --argjson record "$record" \
+        --arg read "$read" --arg from "$from" --arg root "$root" --arg branch "$branch" '
         {
           key: $key,
           design: $design,
           design_blob: $design_blob,
           scope: $scope,
           head: $head,
+          read: $read,
+          from: $from,
+          root: $root,
+          branch: $branch,
           next: (if $record != null
                     and $record.verdict == "pass"
                     and $record.approval.state != "rejected"
@@ -77,9 +105,13 @@ nodes:
         design_blob: { type: string }
         scope: { type: string }
         head: { type: string }
+        read: { type: string }
+        from: { type: string }
+        root: { type: string }
+        branch: { type: string }
         next: { type: string, enum: [rounds, reuse] }
         record: { type: [object, 'null'] }
-      required: [key, design, design_blob, scope, head, next, record]
+      required: [key, design, design_blob, scope, head, read, from, root, branch, next, record]
 
   - id: rounds
     depends_on: [recall]

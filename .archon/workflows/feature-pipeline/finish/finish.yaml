@@ -72,6 +72,9 @@ nodes:
           depends_on: [sync]
           with:
             design: $INPUTS.design
+            design_ref: $INPUTS.land_branch
+            land_branch: $INPUTS.land_branch
+            land_checkout: $INPUTS.land_checkout
             scope: $INPUTS.scope
             survey: |
               Full-check tail of the previous cycle (empty on the first cycle): $LOOP_PREV.gate.output
