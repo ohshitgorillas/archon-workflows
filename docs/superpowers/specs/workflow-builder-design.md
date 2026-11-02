@@ -4,7 +4,7 @@ Status: approved.
 
 `workflow-builder` is the one agent that writes Archon workflow folders in `/home/atom/dev/archon-workflows`. The tree holds one pack, `.archon/workflows/feature-pipeline/`. Each concern the role shares with the rest of the repository has a home or a copy:
 
-1. **Host facts.** What Archon v0.13.2 does on Opal, as opposed to what the upstream pages say, lives in `docs/host-facts.md`, with one copy in `.gauntlet/jobs/design/brief.md`. The facts that break a workflow silently are among them: the sandbox fences Bash only, and relative globs do nothing; a tier model such as `small` fails until `archon setup`; the Claude sandbox needs `socat`, which is absent.
+1. **Archon facts.** Their one home is `docs/reference/archon/`; the repository keeps no separate file of host facts. The Opal behaviors that break a workflow silently live in the role row's `why` and `never`: the sandbox fences Bash only, and relative globs do nothing; a tier model such as `small` fails until `archon setup`; the Claude sandbox needs `socat`, which is absent.
 2. **Pack check.** Its home is the "Checking the pack" row of `docs/superpowers/specs/rebuild-finish-archon-native-design.md`, which also gives each step its done-check. `validate workflows` takes a workflow name, not a path, and resolves names from the discovery scopes. A repository's `.archon/workflows/` is a scope from its root; a temporary `ARCHON_HOME` breaks both checks. `archon workflow test` runs no provider and checks wiring only.
 3. **Fixtures.** Fixtures are the only check that runs a workflow's routes without a live run.
 4. **Who writes workflow folders.** The `feature-pipeline` design gives each workflow folder to `workflow-builder`.
@@ -25,11 +25,10 @@ writes:
   - <pack>/<workflow>/<workflow>.yaml
   - <pack>/<workflow>/commands/*.md
   - <pack>/<workflow>/fixtures/*.stubs.yaml
-  - docs/host-facts.md
 reads:
   - the pack design file under docs/superpowers/specs/ that the brief names
-  - docs/reference/archon/ by grep -n and sed -n, never whole
-  - docs/host-facts.md
+  - docs/reference/archon/ by grep -n and sed -n, never whole; the only source
+    of Archon facts
 tools: [Read, Grep, Glob, Edit, Write, Bash]
 bash:
   - archon validate workflows|commands, archon workflow list, archon workflow test
@@ -49,7 +48,7 @@ why: >
 never:
   - writes <pack>/.shared/, <pack>/<workflow>/scripts/, tests/, a Python module
     or script, an install script, README.md, docs/reference/, docs/superpowers/,
-    ~/.archon/
+    ~/.archon/, a file of host facts
   - writes a checker script or runs any done-check other than the pack design's
   - starts a live run: archon workflow run without --dry-run, --exec-code,
     exec-code: true in a fixture, archon setup, archon workflow approve|reject|respond|resume
@@ -89,14 +88,11 @@ pass, all of:
   - the report's commands hold no archon workflow run without --dry-run and no --exec-code
 ```
 
-**`docs/host-facts.md`**: what Archon v0.13.2 does on Opal where that differs from or is missing from `docs/reference/archon/`. Each fact states the run or command that showed it. It starts from the host facts in `.gauntlet/jobs/design/brief.md`. `workflow-builder` adds each new fact it observes. Designs and the role file point to it and do not restate it.
-
 ## Homes
 
 | Concern | Home | Forbidden elsewhere |
 |---|---|---|
-| Archon language and CLI | `docs/reference/archon/` | A copy of a reference page. |
-| Archon on Opal | `docs/host-facts.md` | Host facts kept in a brief, role file or design body. Copy: `.gauntlet/jobs/design/brief.md`. |
+| Archon language, CLI and behavior | `docs/reference/archon/` | A copy of a reference page. A file of host facts, in this repository or beside it. |
 | Checking a pack | the "Checking the pack" row of `rebuild-finish-archon-native-design.md`, and its done-check | A checker script. Any other done-check for a workflow folder. The check's commands restated in a role file or design. |
 | Workflow folders `<pack>/<workflow>/` | `workflow-builder` | Any other agent writing them. An Order step giving them to another agent. |
 | Route checks | `<pack>/<workflow>/fixtures/*.stubs.yaml` | A workflow folder with no fixture. A fixture with `exec-code: true`. |
@@ -108,5 +104,4 @@ pass, all of:
 ## Order
 
 1. `~/.claude/agents/workflow-builder.md` and its row in `~/.claude/skills/dispatch/roster.md` | `role-author`
-2. `docs/host-facts.md` | `workflow-builder`
-3. The dispatch proof, under `<scratchpad>/proof-repo/` only | `workflow-builder`
+2. The dispatch proof, under `<scratchpad>/proof-repo/` only | `workflow-builder`
