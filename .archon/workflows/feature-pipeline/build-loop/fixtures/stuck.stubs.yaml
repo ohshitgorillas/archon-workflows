@@ -1,3 +1,4 @@
+exec-code: true
 fixture:
   expect: completed
   reached: [before, steps, write, check, commit, review, result]
@@ -9,4 +10,3 @@ check: { status: green, tail: ok }
 commit: { committed: true, status: "" }
 write: { step_id: c1, paths: [src/a.py], check: "make check-a", design_gap: "line t1 has no assertion" }
 review: { verdict: stuck, findings: [{ cause: "design gap", fix: "none" }], fixes_used: 0, next: null, remaining: 0, done: [], stuck: [c1], design_gaps: ["line t1 has no assertion"], stray: [] }
-result: { verdict: stuck, findings: [], fixes_used: 0, next: null, remaining: 0, done: [], stuck: [c1], design_gaps: ["line t1 has no assertion"], stray: [src/b.py] }

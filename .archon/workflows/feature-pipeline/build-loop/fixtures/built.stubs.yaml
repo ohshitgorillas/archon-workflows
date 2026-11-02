@@ -1,3 +1,4 @@
+exec-code: true
 fixture:
   expect: completed
   reached: [before, steps, write, check, commit, review, result]
@@ -9,4 +10,3 @@ check: { status: green, tail: ok }
 commit: { committed: true, status: "" }
 write: { step_id: c1, paths: [src/a.py], check: "make check-a", design_gap: null }
 review: { verdict: pass, findings: [], fixes_used: 0, next: null, remaining: 0, done: [c1], stuck: [], design_gaps: [], stray: [] }
-result: { verdict: pass, findings: [], fixes_used: 0, next: null, remaining: 0, done: [c1], stuck: [], design_gaps: [], stray: [] }

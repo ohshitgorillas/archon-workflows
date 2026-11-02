@@ -1,3 +1,4 @@
+exec-code: true
 fixture:
   expect: completed
   reached: [rounds, plan, prosecute, spec, arbitrate, round, verdict]
@@ -12,5 +13,3 @@ spec:
   decisions: []
 prosecute: { verdict: pass, findings: [] }
 arbitrate: { verdict: pass, findings: [] }
-round: '{"plan":{"steps":[],"decisions":[]},"prosecute":{"verdict":"pass","findings":[]},"spec":{"lines":[],"helpers":[],"steps":[],"decisions":[]},"arbitrate":{"verdict":"pass","findings":[]}}'
-verdict: { verdict: pass, plan: { steps: [] , decisions: [] }, spec: { lines: [] }, findings: [], decisions: [] }

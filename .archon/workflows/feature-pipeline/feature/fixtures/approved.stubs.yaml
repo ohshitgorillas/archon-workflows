@@ -1,3 +1,4 @@
+exec-code: true
 fixture:
   expect: completed
   reached: [read-request, planning__verdict, gate]
@@ -13,6 +14,4 @@ spec:
   steps: [{ id: w1, before: c1, lines: [t1], paths: [tests/test_a.py], check: "make check-t", blocked_by: [] }]
   decisions: []
 arbitrate: { verdict: pass, findings: [] }
-round: '{"plan":{"steps":[],"decisions":[]},"prosecute":{"verdict":"pass","findings":[]},"spec":{"lines":[],"helpers":[],"steps":[],"decisions":[]},"arbitrate":{"verdict":"pass","findings":[]}}'
-planning__verdict: { verdict: pass, plan: { steps: [] }, spec: { lines: [] }, findings: [], decisions: [] }
 gate: { decision: approve, text: "" }

@@ -1,3 +1,4 @@
+exec-code: true
 fixture:
   expect: completed
   reached: [rounds, plan, prosecute, spec, arbitrate, round, verdict]
@@ -12,5 +13,3 @@ spec:
   decisions: []
 prosecute: { verdict: fail, findings: [{ author: plan, target: c1, cause: x, fix: y, design_it_in: false }] }
 arbitrate: { verdict: fail, findings: [{ author: spec, target: t1, cause: x, fix: y, design_it_in: false }] }
-round: '{"plan":{"steps":[],"decisions":[]},"prosecute":{"verdict":"pass","findings":[]},"spec":{"lines":[],"helpers":[],"steps":[],"decisions":[]},"arbitrate":{"verdict":"pass","findings":[]}}'
-verdict: { verdict: refused, plan: { steps: [], decisions: [] }, spec: { lines: [] }, findings: [], decisions: [] }
