@@ -1,9 +1,10 @@
 name: feature
 description: >-
   Phase 1 of the feature pipeline. Takes a request file in the target repository (the
-  run's working directory), runs the plan-review block (the planner cuts the code steps,
-  the specifier writes the test spec against that Plan, a prosecutor and an arbiter rule
-  on them, two rounds at most) and stops for one approval over the Plan and Spec together.
+  run's working directory), runs the plan-review block sequentially (the planner cuts the
+  code steps and a prosecutor rules on them; only then the specifier writes the test spec
+  against that Plan and an arbiter rules on it; 4 Plan attempts and 4 Spec attempts at
+  most) and stops for one approval over the Plan and Spec together.
   Writes nothing. Use on a hammered-out request; not for code changes.
 provider: claude
 model: claude-opus-5-5
@@ -34,7 +35,7 @@ nodes:
   - id: refused
     depends_on: [planning]
     when: "$planning.output.verdict == 'refused'"
-    cancel: "The Plan and Spec still fail review after two rounds. Findings: $planning.output.findings"
+    cancel: "The Plan and Spec still fail review at the Plan or Spec cap. Findings: $planning.output.findings"
 
   - id: gate
     depends_on: [planning, refused]
