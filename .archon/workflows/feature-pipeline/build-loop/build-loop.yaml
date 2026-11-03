@@ -82,7 +82,7 @@ nodes:
               if git commit -q -m "$id" -- "${arr[@]}"; then committed=true; fi
             fi
             tree=$(git status --porcelain)
-            jq -n --argjson c "$committed" --arg t "$tree" '{committed: $c, status: $t}'
+            jq -n --argjson c "$committed" --rawfile t <(printf '%s' "$tree") '{committed: $c, status: $t}'
           output_format:
             type: object
             properties:

@@ -108,8 +108,10 @@ nodes:
         stopped=$resume
       fi
       jq -cn --arg key "$key" --arg design "$design" --arg design_blob "$blob" --arg scope "$scope" --arg head "$head" \
-        --arg run "$WORKFLOW_ID" --argjson record "$record" --argjson stopped "$stopped" --arg answer "$answer" \
+        --arg run "$WORKFLOW_ID" --slurpfile record <(printf '%s' "$record") --slurpfile stopped <(printf '%s' "$stopped") --arg answer "$answer" \
         --arg read "$read" --arg from "$from" --arg root "$root" --arg branch "$branch" '
+        def one($n): if length == 1 then .[0] else error("recall: \($n) is not one JSON value") end;
+        ($record | one("record")) as $record | ($stopped | one("stopped")) as $stopped |
         (if $answer == "" then []
          else [{decisions: (($stopped // {}).questions // []), text: $answer}] end) as $given
         | ((($stopped // {}).answers // []) + (($record // {}).answers // []) + $given
@@ -442,7 +444,9 @@ nodes:
             [ -n "$plan" ] || plan=null
             [ -n "$spec" ] || spec=null
             [ -n "$prev" ] || prev=null
-            jq -nc --argjson planned "$plan" --argjson written "$spec" --argjson last "$prev" --argjson found "$found" '
+            jq -nc --slurpfile planned <(printf '%s' "$plan") --slurpfile written <(printf '%s' "$spec") --slurpfile last <(printf '%s' "$prev") --slurpfile found <(printf '%s' "$found") '
+              def one($n): if length == 1 then .[0] else error("hold: \($n) is not one JSON value") end;
+              ($planned | one("planned")) as $planned | ($written | one("written")) as $written | ($last | one("last")) as $last | ($found | one("found")) as $found |
               (if $planned != null then "plan"
                elif $written != null then "spec"
                else error("hold: neither the planner nor the specifier answered this round") end) as $at
@@ -508,7 +512,9 @@ nodes:
             [ -n "$spec" ] || spec=null
             [ -n "$arbitrate" ] || arbitrate=null
             [ -n "$prev" ] || prev=null
-            jq -nc --argjson held "$held" --argjson planned "$plan" --argjson resolved "$cite" --argjson probed "$probe" --argjson ruling "$prosecute" --argjson written "$spec" --argjson arbiter "$arbitrate" --argjson last "$prev" --argjson found "$found" --arg track "$track" '
+            jq -nc --slurpfile held <(printf '%s' "$held") --slurpfile planned <(printf '%s' "$plan") --slurpfile resolved <(printf '%s' "$cite") --slurpfile probed <(printf '%s' "$probe") --slurpfile ruling <(printf '%s' "$prosecute") --slurpfile written <(printf '%s' "$spec") --slurpfile arbiter <(printf '%s' "$arbitrate") --slurpfile last <(printf '%s' "$prev") --slurpfile found <(printf '%s' "$found") --arg track "$track" '
+              def one($n): if length == 1 then .[0] else error("round: \($n) is not one JSON value") end;
+              ($held | one("held")) as $held | ($planned | one("planned")) as $planned | ($resolved | one("resolved")) as $resolved | ($probed | one("probed")) as $probed | ($ruling | one("ruling")) as $ruling | ($written | one("written")) as $written | ($arbiter | one("arbiter")) as $arbiter | ($last | one("last")) as $last | ($found | one("found")) as $found |
               {steps: [], decisions: []} as $noplan
               | {lines: [], helpers: [], steps: [], decisions: []} as $nospec
               | ($last // $found.seed // {}) as $p
@@ -589,91 +595,57 @@ nodes:
             required: [next, addressed, plan, spec, findings, questions, resume]
 
   - id: verdict
-    runtime: uv
     depends_on: [recall, rounds]
     trigger_rule: all_done
     mutates_checkout: false
     timeout: 60000
-    with:
-      recall: $recall.output
-      round: { from: $rounds.output, if_skipped: null }
-    script: |
-      import json
-      import os
-      import sys
-
-
-      def gathered(plan: dict, spec: dict) -> list:
-          seen = set()
-          kept = []
-          for decision in list(plan.get("decisions") or []) + list(spec.get("decisions") or []):
-              if decision["id"] in seen:
-                  continue
-              seen.add(decision["id"])
-              kept.append(decision)
-          return kept
-
-
-      def asked(questions: list) -> str:
-          return "\n".join(
-              "Decision %s: %s Recommend: %s. Alternative: %s. Cost: %s."
-              % (d["id"], d["question"], d["recommend"], d["alternative"], d["cost"])
-              for d in questions
-          )
-
-
-      def main() -> int:
-          recall = json.loads(os.environ["INPUTS_RECALL"])
-          last = json.loads(os.environ["INPUTS_ROUND"])
-          if last is None and recall["next"] == "reuse":
-              record = recall["record"]
-              result = {
-                  "verdict": record["verdict"],
-                  "recalled": True,
-                  "findings": record["findings"],
-                  "decisions": record["decisions"],
-                  "approval": record["approval"],
-                  "key": recall["key"],
-                  "plan": record["plan"],
-                  "spec": record["spec"],
-                  "questions": [],
-                  "question": "",
-                  "stopped": None,
-              }
-          elif last is not None and recall["next"] == "rounds":
-              spec = last["spec"] if last["spec"] is not None else {}
-              blocked = last["next"] == "blocked"
-              if blocked:
-                  verdict = "blocked"
-              elif last["next"] == "done":
-                  verdict = "pass"
-              else:
-                  verdict = "refused"
-              result = {
-                  "verdict": verdict,
-                  "recalled": False,
-                  "findings": last["findings"],
-                  "decisions": gathered(last["plan"], spec),
-                  "approval": {"state": "none", "text": ""},
-                  "key": recall["key"],
-                  "plan": last["plan"],
-                  "spec": spec,
-                  "questions": last["questions"],
-                  "question": asked(last["questions"]),
-                  "stopped": dict(last, answers=recall["answers"]) if blocked else None,
-              }
-          else:
-              print(
-                  "verdict: recall.next is %r but the last round is %s"
-                  % (recall["next"], "missing" if last is None else "present"),
-                  file=sys.stderr,
-              )
-              return 1
-          print(json.dumps(result, separators=(",", ":")))
-          return 0
-
-
-      sys.exit(main())
+    bash: |
+      set -euo pipefail
+      recall=$recall.output
+      last=$rounds.output
+      [ -n "$last" ] || last=null
+      jq -nc --slurpfile recall <(printf '%s' "$recall") --slurpfile last <(printf '%s' "$last") '
+        def one($n): if length == 1 then .[0] else error("verdict: \($n) is not one JSON value") end;
+        def gathered($plan; $spec):
+          reduce (($plan.decisions // []) + ($spec.decisions // []))[] as $d ([];
+            if any(.[]; .id == $d.id) then . else . + [$d] end);
+        def asked($qs):
+          [$qs[] | "Decision \(.id): \(.question) Recommend: \(.recommend). Alternative: \(.alternative). Cost: \(.cost)."] | join("\n");
+        ($recall | one("recall")) as $recall | ($last | one("last")) as $last |
+        if $last == null and $recall.next == "reuse" then
+          $recall.record as $r
+          | {
+              verdict: $r.verdict,
+              recalled: true,
+              findings: $r.findings,
+              decisions: $r.decisions,
+              approval: $r.approval,
+              key: $recall.key,
+              plan: $r.plan,
+              spec: $r.spec,
+              questions: [],
+              question: "",
+              stopped: null
+            }
+        elif $last != null and $recall.next == "rounds" then
+          ($last.spec // {}) as $spec
+          | ($last.next == "blocked") as $blocked
+          | {
+              verdict: (if $blocked then "blocked" elif $last.next == "done" then "pass" else "refused" end),
+              recalled: false,
+              findings: $last.findings,
+              decisions: gathered($last.plan; $spec),
+              approval: {state: "none", text: ""},
+              key: $recall.key,
+              plan: $last.plan,
+              spec: $spec,
+              questions: $last.questions,
+              question: asked($last.questions),
+              stopped: (if $blocked then $last + {answers: $recall.answers} else null end)
+            }
+        else
+          error("verdict: recall.next is \u0027\($recall.next)\u0027 but the last round is \(if $last == null then "missing" else "present" end)")
+        end'
     output_format:
       type: object
       properties:
@@ -706,7 +678,9 @@ nodes:
       carry=$INPUTS_CARRY
       dir="$STATE_DIR/feature-pipeline/plans"
       mkdir -p "$dir"
-      jq -n --argjson found "$found" --argjson answer "$answer" --arg run "$WORKFLOW_ID" --arg carry "$carry" '
+      jq -n --slurpfile found <(printf '%s' "$found") --slurpfile answer <(printf '%s' "$answer") --arg run "$WORKFLOW_ID" --arg carry "$carry" '
+        def one($n): if length == 1 then .[0] else error("keep: \($n) is not one JSON value") end;
+        ($found | one("found")) as $found | ($answer | one("answer")) as $answer |
         {
           key: $found.key,
           design: $found.design,

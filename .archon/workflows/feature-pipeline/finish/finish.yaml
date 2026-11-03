@@ -71,7 +71,7 @@ nodes:
               jq -n '{conflicted: false, paths: ""}'
             elif git rev-parse -q --verify MERGE_HEAD >/dev/null; then
               paths=$(git diff --name-only --diff-filter=U)
-              jq -n --arg p "$paths" '{conflicted: true, paths: $p}'
+              jq -n --rawfile p <(printf '%s' "$paths") '{conflicted: true, paths: $p}'
             else
               exit $rc
             fi
@@ -120,7 +120,7 @@ nodes:
                 printf '%s\n' "$out" >&2
               fi
             fi
-            jq -n --argjson m "$merged" --arg p "$paths" --arg r "$reason" '{merged: $m, paths: $p, reason: $r}'
+            jq -n --argjson m "$merged" --rawfile p <(printf '%s' "$paths") --rawfile r <(printf '%s' "$reason") '{merged: $m, paths: $p, reason: $r}'
           output_format:
             type: object
             properties:
