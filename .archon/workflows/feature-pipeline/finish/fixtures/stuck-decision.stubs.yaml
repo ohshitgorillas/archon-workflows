@@ -1,0 +1,37 @@
+exec-code: true
+fixture:
+  expect: cancelled
+  inputs: { design: docs/d.md, scope: "12a", full_check: "make check", branch: feat, land_branch: main, land_checkout: /tmp/land }
+  reached: [baseline, cycle, sync, gate, bail, tally, ask, cycled, limit]
+  resolved-text-contains:
+    ask: "Decision gap-c1: should an expired token log the user out or refresh silently? Recommend: refresh silently. Alternative: log out. Cost: refresh adds one call per expiry; log out costs the user a sign-in."
+    limit: "finish stopped at its cap of 4 cycles without landing. Still open: 1 owner decisions: Decision gap-c1:"
+baseline: { status: green, tail: ok }
+sync: { conflicted: false, paths: "" }
+plan:
+  steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+  decisions: []
+prosecute: { verdict: pass, findings: [] }
+planning__verdict:
+  verdict: pass
+  plan:
+    steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+    decisions: []
+  spec: { lines: [], helpers: [], steps: [], decisions: [] }
+  findings: []
+  decisions: []
+  recalled: false
+  approval: { state: none, text: "" }
+  key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+  questions: []
+  question: ""
+  stopped: null
+build__before: ""
+write: { step_id: c1, paths: [src/a.py], check: "make check-a", design_gap: "the design does not say what an expired token does" }
+check: { status: red, tail: FAILED }
+commit: { committed: false, status: "" }
+review: { verdict: stuck, findings: [{ cause: "design gap", basis: "the design does not say what an expired token does" }], fixes_used: 0, fixed: [], next: null, remaining: 0, done: [], stuck: [c1], design_gaps: ["the design does not say what an expired token does"], stray: [] }
+gate: { status: green, tail: ok }
+bail: { pin: ok, findings: [], open: 1, decisions: [{ id: gap-c1, question: "should an expired token log the user out or refresh silently?", recommend: "refresh silently", alternative: "log out", cost: "refresh adds one call per expiry; log out costs the user a sign-in." }], question: "Decision gap-c1: should an expired token log the user out or refresh silently? Recommend: refresh silently. Alternative: log out. Cost: refresh adds one call per expiry; log out costs the user a sign-in." }
+ask: { text: "refresh silently" }
+planning__track: { track: full }

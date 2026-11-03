@@ -4,9 +4,11 @@ description: >-
   land branch, plans the code and test steps, builds every unblocked step, runs the full
   gate and checks that committed tests match their spec lines. A blocking decision stops the
   cycle before it builds: the owner is asked it at once, and the next cycle resumes planning
-  from where it stopped with the answer. The owner is asked the open
-  decisions, a refused plan-review, product questions from design gaps and stuck steps, and
-  any cap hit (the build's fix cap, the cycle cap) with what is outstanding. Lands by
+  from where it stopped with the answer. The owner is asked only decisions: the open
+  decisions of the Plan and Spec and product questions from design gaps and stuck steps. A
+  failure the run cannot fix stops it at once with the reason: a refused plan-review names
+  the blocking findings planning could not clear, and a stuck build step names its last
+  findings and design gaps. The cycle backstop cancels with what is still open. Lands by
   fast-forward only; nothing pushes. Start with
   --cwd set to the branch's checkout.
 provider: claude
@@ -58,7 +60,8 @@ nodes:
       max_iterations: 4
       until_bash: |
         d=$tally.output.done
-        [ "$d" = true ]
+        s=$tally.output.stop
+        [ "$d" = true ] || [ "$s" = true ]
       nodes:
         - id: sync
           bash: |
@@ -158,7 +161,7 @@ nodes:
         - id: gate
           depends_on: [build]
           trigger_rule: all_done
-          when: "$planning.output.verdict != 'blocked'"
+          when: "$planning.output.verdict == 'pass'"
           bash: |
             cmd="$INPUTS_FULL_CHECK"
             out=$(bash -c "$cmd" 2>&1)
@@ -176,7 +179,7 @@ nodes:
         - id: bail
           command: bail
           depends_on: [gate]
-          when: "$planning.output.verdict != 'blocked'"
+          when: "$planning.output.verdict == 'pass'"
           context: fresh
           mutates_checkout: false
           allowed_tools: [Read, Grep, Glob, 'Bash(git log:*)', 'Bash(git diff:*)', 'Bash(git show:*)']
@@ -211,9 +214,11 @@ nodes:
           with:
             verdict: $planning.output.verdict
             blocking: $planning.output.question
+            refusal: $planning.output.findings
             gate: { from: $gate.output.status, if_skipped: skipped }
             pin: { from: $bail.output.pin, if_skipped: skipped }
             open: { from: $bail.output.open, if_skipped: 0 }
+            decisions: { from: $bail.output.decisions, if_skipped: [] }
             question: { from: $bail.output.question, if_skipped: "" }
             pins: { from: $bail.output.findings, if_skipped: [] }
             tail: { from: $gate.output.tail, if_skipped: "" }
@@ -224,62 +229,86 @@ nodes:
             import os
 
             CYCLES = 4
-            FIXES = 2
 
             verdict = os.environ["INPUTS_VERDICT"]
             gate = os.environ["INPUTS_GATE"]
             pin = os.environ["INPUTS_PIN"]
             opened = json.loads(os.environ["INPUTS_OPEN"])
+            decisions = json.loads(os.environ["INPUTS_DECISIONS"])
             blocking = os.environ["INPUTS_BLOCKING"]
+            refusal = json.loads(os.environ["INPUTS_REFUSAL"])
             question = os.environ["INPUTS_QUESTION"]
             pins = json.loads(os.environ["INPUTS_PINS"])
             tail = os.environ["INPUTS_TAIL"]
             build = json.loads(os.environ["INPUTS_BUILD"])
             prior = os.environ["INPUTS_PRIOR"].strip()
             cycle = (int(prior) if prior else 0) + 1
+
+            # A failure the run cannot fix stops it at once, with the reason.
+            reasons = []
+            if verdict == "refused":
+                blockers = [f for f in refusal if f.get("severity") == "blocking"] or refusal
+                reasons.append(
+                    "plan-review refused the Plan and Spec; the blocking findings planning could not clear: %s."
+                    % json.dumps(blockers)
+                )
+            if build is not None and build["stuck"]:
+                asked = {d["id"] for d in decisions}
+                failed = [s for s in build["stuck"] if "stuck-" + s not in asked and "gap-" + s not in asked]
+                if failed:
+                    reasons.append(
+                        "the build cannot finish step %s: another try cannot change the result. "
+                        "Last review findings: %s. Design gaps: %s."
+                        % (
+                            ", ".join(failed),
+                            json.dumps(build.get("findings") or []),
+                            json.dumps(build["design_gaps"]),
+                        )
+                    )
+            stop = bool(reasons)
+            if stop and question:
+                reasons.append("Decisions also open: " + question)
+            reason = "finish stopped: " + " ".join(reasons) if stop else ""
+
             done = (
-                verdict == "pass"
+                not stop
+                and verdict == "pass"
                 and gate == "green"
                 and pin == "ok"
                 and opened == 0
                 and build is not None
                 and build["remaining"] == 0
             )
-            limits = []
-            if build is not None and build["stuck"]:
-                limits.append(
-                    "The build stopped these steps at its cap of %d fixes per step: %s. "
-                    "Last review findings: %s. Design gaps: %s."
-                    % (
-                        FIXES,
-                        ", ".join(build["stuck"]),
-                        json.dumps(build.get("findings") or []),
-                        json.dumps(build["design_gaps"]),
-                    )
-                )
-            capped = not done and cycle >= CYCLES
-            if capped:
-                outstanding = []
-                if verdict == "refused":
-                    outstanding.append("plan-review refused the Plan and Spec at its caps")
+
+            # What is still open, for the cycle backstop's cancel.
+            outstanding = []
+            if not done and not stop:
                 if verdict == "blocked":
-                    outstanding.append("plan-review stopped on the blocking decisions asked above")
+                    outstanding.append("the blocking decisions plan-review asked: " + blocking)
+                if opened > 0:
+                    outstanding.append("%d owner decisions: %s" % (opened, question))
                 if build is not None and build["remaining"] > 0:
                     outstanding.append("%d buildable steps not yet built" % build["remaining"])
-                if gate != "green":
+                if gate != "green" and gate != "skipped":
                     outstanding.append("the full gate is red; its tail: " + tail)
-                if pin != "ok":
+                if pin == "broken":
                     outstanding.append("the pin check is broken: " + json.dumps(pins))
-                if opened > 0:
-                    outstanding.append("%d owner decisions are open" % opened)
-                limits.append(
-                    "finish has run cycle %d of its cap of %d without landing. Outstanding: %s."
-                    % (cycle, CYCLES, "; ".join(outstanding) or "none named")
-                )
-            text = "\n\n".join(part for part in [blocking, question] + limits if part)
+
+            # The owner is asked decisions only, and not once the cycle cap is reached.
+            text = "\n\n".join(part for part in [blocking, question] if part)
+            ask = bool(text) and not stop and not done and cycle < CYCLES
             print(
                 json.dumps(
-                    {"done": done, "build": build, "cycle": cycle, "ask": bool(text) and not capped, "question": text},
+                    {
+                        "done": done,
+                        "stop": stop,
+                        "reason": reason,
+                        "build": build,
+                        "cycle": cycle,
+                        "ask": ask,
+                        "question": text,
+                        "open": "; ".join(outstanding) or "nothing named",
+                    },
                     separators=(",", ":"),
                 )
             )
@@ -287,11 +316,14 @@ nodes:
             type: object
             properties:
               done: { type: boolean }
+              stop: { type: boolean }
+              reason: { type: string }
               build: { type: [object, "null"] }
               cycle: { type: integer }
               ask: { type: boolean }
               question: { type: string }
-            required: [done, build, cycle, ask, question]
+              open: { type: string }
+            required: [done, stop, reason, build, cycle, ask, question, open]
 
         - id: ask
           depends_on: [tally]
@@ -308,12 +340,17 @@ nodes:
     output_format:
       type: object
 
+  - id: halt
+    depends_on: [cycled]
+    when: "$cycled.output.stop == 'true'"
+    cancel: "$cycled.output.reason"
+
   - id: limit
     depends_on: [cycled]
-    when: "$cycled.output.done != 'true'"
-    cancel: "finish stopped at its cap of 4 cycles without landing. Still open: $cycled.output.question"
+    when: "$cycled.output.done != 'true' && $cycled.output.stop != 'true'"
+    cancel: "finish stopped at its cap of 4 cycles without landing. Still open: $cycled.output.open"
 
   - id: land
-    depends_on: [cycled, limit]
+    depends_on: [cycled, halt, limit]
     trigger_rule: none_failed_min_one_success
     bash: git -C "$INPUTS_LAND_CHECKOUT" merge --ff-only "$INPUTS_BRANCH"

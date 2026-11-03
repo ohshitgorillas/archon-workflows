@@ -1,0 +1,14 @@
+exec-code: true
+fixture:
+  expect: cancelled
+  inputs: { design: docs/d.md, scope: "12a", full_check: "make check", branch: feat, land_branch: main, land_checkout: /tmp/land }
+  reached: [baseline, cycle, sync, tally, cycled, halt]
+  resolved-text-contains:
+    halt: "finish stopped: plan-review refused the Plan and Spec; the blocking findings planning could not clear: [{"
+baseline: { status: green, tail: ok }
+sync: { conflicted: false, paths: "" }
+plan:
+  steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+  decisions: []
+prosecute: { verdict: fail, findings: [{ author: plan, target: c1, cause: x, basis: y, severity: blocking, design_it_in: false }] }
+planning__track: { track: full }
