@@ -245,10 +245,10 @@ nodes:
                     author: { type: string, enum: [plan] }
                     target: { type: string }
                     cause: { type: string }
-                    fix: { type: string }
+                    basis: { type: string, minLength: 1 }
                     severity: { type: string, enum: [blocking] }
                     design_it_in: { type: boolean }
-                  required: [author, target, cause, fix, severity, design_it_in]
+                  required: [author, target, cause, basis, severity, design_it_in]
             required: [findings]
 
         - id: prosecute
@@ -420,7 +420,7 @@ nodes:
                     author: "plan",
                     target: .step,
                     cause: "\(.path):\(.line): \(.reason)",
-                    fix: "cite the line whose text is the quote",
+                    basis: "the cite quotes `\(.quote)`, and no single line of \(.path) is that text",
                     severity: "blocking",
                     design_it_in: false
                   })) as $uncited

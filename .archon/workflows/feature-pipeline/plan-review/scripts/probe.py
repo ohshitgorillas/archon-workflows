@@ -35,10 +35,10 @@ SUB = re.compile(r"^__probe_sub_(\d+)__$")
 
 
 class Hit(NamedTuple):
-    """One probe hit in a check: what was found and how to fix it."""
+    """One probe hit in a check: what was found and the fact of this run it rests on."""
 
     cause: str
-    fix: str
+    basis: str
 
 
 def closing(text: str, start: int) -> int:
@@ -171,7 +171,7 @@ class Probe:
         return place, Hit(
             f"{how} {target}: {place} is not an existing directory under the checkout root {self.root}, "
             "and no step of this Plan lists a path inside it",
-            "run the check from the checkout root, naming paths relative to it; never cd into another checkout",
+            f"every check runs from the checkout root {self.root}",
         )
 
     def read(self, text: str, cwd: pathlib.Path | None = None) -> list[Hit]:
@@ -186,7 +186,7 @@ class Probe:
             hits.append(
                 Hit(
                     f"the check does not parse as shell ({error}), so bash -c fails on it at build",
-                    "close every quote and bracket in the check",
+                    "the build runs every check with bash -c",
                 )
             )
         for i, word in enumerate(words):
@@ -206,7 +206,7 @@ class Probe:
                             Hit(
                                 f"the check compares `{read}` {words[op_at]} `{other}`, but the branch of this run is "
                                 f"`{self.branch}`; every check runs on that branch, so the comparison never holds as meant",
-                                "assert nothing about the branch, or assert the branch of this run",
+                                f"every check runs on branch `{self.branch}`",
                             )
                         )
         stack: list[pathlib.Path] = []
@@ -242,7 +242,7 @@ class Probe:
                     hits.append(
                         Hit(
                             f"the check runs `git {rest[0]}`; a check never changes the branch or a worktree",
-                            f"drop `git {rest[0]}` and check the checkout of this run as it stands",
+                            "every check runs in the checkout of this run, on its branch, as it stands",
                         )
                     )
             elif name == "make":
@@ -268,7 +268,7 @@ def main() -> int:
                     "author": "plan",
                     "target": step.get("id", ""),
                     "cause": f"check `{step.get('check', '')}`: {hit.cause}",
-                    "fix": hit.fix,
+                    "basis": hit.basis,
                     "severity": "blocking",
                     "design_it_in": False,
                 }

@@ -26,8 +26,8 @@ The latest Plan in this call (empty in round 1):
 $LOOP_PREV.round.output.plan
 
 Findings from the previous round (empty in round 1). Ignore those whose author is spec. Handle those whose author is plan this way:
-- A finding with a fix comes from a check the workflow ran itself (the check probe or the cite resolver). Apply its fix.
-- A finding with a basis comes from the prosecutor or the arbiter. Address it in your own way, as you judge best.
+- Every finding carries a basis: the text or fact it rests on. Address it in your own way, as you judge best.
+- A finding from a check the workflow ran itself (the check probe or the cite resolver) rests on a fact of this run and is never unfounded.
 - A finding never widens what the design and scope ask for. A finding whose basis does not show its cause, or that contradicts the facts above, is unfounded: you may leave that point of the Plan as it is.
 - When a finding quotes design text and a rule in these instructions that pull different ways, list it as a decision.
 $LOOP_PREV.round.output.findings
