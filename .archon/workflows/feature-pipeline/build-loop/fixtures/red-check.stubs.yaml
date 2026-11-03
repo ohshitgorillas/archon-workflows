@@ -9,4 +9,4 @@ before: ""
 check: { status: red, tail: "FAILED" }
 commit: { committed: false, status: "" }
 write: { step_id: c1, paths: [src/a.py], check: "make check-a", design_gap: null }
-review: { verdict: stuck, findings: [{ cause: "check red", fix: "fix a" }], fixes_used: 2, next: null, remaining: 0, done: [], stuck: [c1], design_gaps: [], stray: [] }
+review: { verdict: stuck, findings: [{ cause: "check red", basis: "check red" }], fixes_used: 2, next: null, remaining: 0, done: [], stuck: [c1], design_gaps: [], stray: [] }

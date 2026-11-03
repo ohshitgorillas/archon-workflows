@@ -28,3 +28,4 @@ planning__verdict: &verdict
   stopped: null
 gate: { decision: reject, text: "wrong scope" }
 approval: ""
+planning__track: { track: full }

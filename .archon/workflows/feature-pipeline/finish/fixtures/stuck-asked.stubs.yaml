@@ -4,7 +4,7 @@ fixture:
   inputs: { design: docs/d.md, scope: "12a", full_check: "make check", branch: feat, land_branch: main, land_checkout: /tmp/land }
   reached: [baseline, cycle, sync, gate, bail, tally, ask]
   resolved-text-contains:
-    ask: "The build stopped these steps at its cap of 2 fixes per step: c1. Last review findings: [{\"cause\": \"check red\", \"fix\": \"fix a\"}]."
+    ask: "The build stopped these steps at its cap of 2 fixes per step: c1. Last review findings: [{\"cause\": \"check red\", \"basis\": \"check red\"}]."
 baseline: { status: green, tail: ok }
 sync: ""
 plan:
@@ -29,8 +29,9 @@ build__before: ""
 write: { step_id: c1, paths: [src/a.py], check: "make check-a", design_gap: null }
 check: { status: red, tail: FAILED }
 commit: { committed: false, status: "" }
-review: { verdict: stuck, findings: [{ cause: "check red", fix: "fix a" }], fixes_used: 2, next: null, remaining: 0, done: [], stuck: [c1], design_gaps: [], stray: [] }
+review: { verdict: stuck, findings: [{ cause: "check red", basis: "check red" }], fixes_used: 2, next: null, remaining: 0, done: [], stuck: [c1], design_gaps: [], stray: [] }
 gate: { status: green, tail: ok }
 bail: { pin: ok, findings: [], open: 0, decisions: [], question: "" }
 land: ""
 ask: { text: "drop c1 for now" }
+planning__track: { track: full }

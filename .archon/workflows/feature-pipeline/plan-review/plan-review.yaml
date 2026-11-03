@@ -156,8 +156,21 @@ nodes:
         record: { type: [object, 'null'] }
       required: [key, design, design_blob, scope, head, read, from, root, branch, next, start, seed, answers, record]
 
-  - id: rounds
+  - id: track
+    command: track
     depends_on: [recall]
+    when: "$recall.output.next == 'rounds'"
+    context: fresh
+    mutates_checkout: false
+    allowed_tools: [Read, Grep, Glob]
+    output_format:
+      type: object
+      properties:
+        track: { type: string, enum: [full, tests-only, test-free] }
+      required: [track]
+
+  - id: rounds
+    depends_on: [recall, track]
     when: "$recall.output.next == 'rounds'"
     loop_group:
       max_iterations: 8
@@ -167,7 +180,7 @@ nodes:
       nodes:
         - id: plan
           command: plan
-          when: "$LOOP_PREV.round.output.next == 'plan' || $LOOP_PREV.round.output.next != 'spec' && $recall.output.start == 'plan'"
+          when: "$track.output.track != 'tests-only' && $LOOP_PREV.round.output.next == 'plan' || $track.output.track != 'tests-only' && $LOOP_PREV.round.output.next != 'spec' && $recall.output.start == 'plan'"
           context: fresh
           mutates_checkout: false
           allowed_tools: [Read, Grep, Glob, Agent]
@@ -197,7 +210,6 @@ nodes:
             properties:
               steps:
                 type: array
-                minItems: 1
                 maxItems: 20
                 items:
                   type: object
@@ -320,7 +332,7 @@ nodes:
 
         - id: spec
           command: spec
-          when: "$LOOP_PREV.round.output.next == 'spec' || $LOOP_PREV.round.output.next != 'plan' && $recall.output.start == 'spec'"
+          when: "$track.output.track == 'tests-only' || $track.output.track == 'full' && $LOOP_PREV.round.output.next == 'spec' || $track.output.track == 'full' && $LOOP_PREV.round.output.next != 'plan' && $recall.output.start == 'spec'"
           context: fresh
           mutates_checkout: false
           allowed_tools: [Read, Grep, Glob, Agent]
@@ -482,6 +494,7 @@ nodes:
             prosecute=$prosecute.output
             spec=$spec.output
             arbitrate=$arbitrate.output
+            track=$track.output.track
             prev=$LOOP_PREV.round.output
             found=$recall.output
             [ -n "$plan" ] || plan=null
@@ -491,8 +504,10 @@ nodes:
             [ -n "$spec" ] || spec=null
             [ -n "$arbitrate" ] || arbitrate=null
             [ -n "$prev" ] || prev=null
-            jq -nc --argjson held "$held" --argjson planned "$plan" --argjson resolved "$cite" --argjson probed "$probe" --argjson ruling "$prosecute" --argjson written "$spec" --argjson arbiter "$arbitrate" --argjson last "$prev" --argjson found "$found" '
-              ($last // $found.seed // {}) as $p
+            jq -nc --argjson held "$held" --argjson planned "$plan" --argjson resolved "$cite" --argjson probed "$probe" --argjson ruling "$prosecute" --argjson written "$spec" --argjson arbiter "$arbitrate" --argjson last "$prev" --argjson found "$found" --arg track "$track" '
+              {steps: [], decisions: []} as $noplan
+              | {lines: [], helpers: [], steps: [], decisions: []} as $nospec
+              | ($last // $found.seed // {}) as $p
               | ($p.cuts // 0) as $cuts
               | ($p.specs // 0) as $specs
               | if $held.stop then
@@ -500,7 +515,7 @@ nodes:
                     next: "blocked",
                     cuts: $cuts,
                     specs: $specs,
-                    plan: (if $held.at == "plan" then $planned else $p.plan end),
+                    plan: (if $held.at == "plan" then $planned else ($p.plan // $noplan) end),
                     spec: (if $held.at == "spec" then $written else ($p.spec // null) end),
                     findings: ($p.findings // []),
                     questions: $held.questions,
@@ -518,23 +533,25 @@ nodes:
                   | (($probed // {}).findings // []) as $checks
                   | ($ruling.findings + $uncited + $checks) as $filed
                   | {
-                      next: (if any($filed[]; .severity == "blocking") then "plan" else "spec" end),
+                      next: (if any($filed[]; .severity == "blocking") then "plan"
+                             elif $track == "test-free" then "done"
+                             else "spec" end),
                       cuts: ($cuts + 1),
                       specs: $specs,
                       plan: $resolved.plan,
-                      spec: ($p.spec // null),
+                      spec: (if $track == "test-free" then $nospec else ($p.spec // null) end),
                       findings: ($filed + (($p.findings // []) | map(select(.author == "spec")))),
                       questions: [],
                       resume: null
                     }
                 else
                   {
-                    next: (if any($arbiter.findings[]; .severity == "blocking" and .author == "plan") then "plan"
+                    next: (if any($arbiter.findings[]; .severity == "blocking" and .author == "plan") then (if $track == "tests-only" then "spec" else "plan" end)
                            elif any($arbiter.findings[]; .severity == "blocking") then "spec"
                            else "done" end),
                     cuts: $cuts,
                     specs: ($specs + 1),
-                    plan: $p.plan,
+                    plan: ($p.plan // $noplan),
                     spec: $written,
                     findings: $arbiter.findings,
                     questions: [],

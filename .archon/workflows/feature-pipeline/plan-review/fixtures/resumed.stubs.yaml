@@ -1,7 +1,7 @@
 exec-code: true
 fixture:
   expect: completed
-  reached: [recall, rounds, spec, hold, arbitrate, round, verdict, keep]
+  reached: [recall, track, rounds, spec, hold, arbitrate, round, verdict, keep]
   inputs:
     design: docs/d.md
     scope: "u1"
@@ -27,3 +27,4 @@ spec:
   steps: [{ id: w1, before: c1, lines: [t1], paths: [tests/test_a.py], check: "make test-a", blocked_by: [] }]
   decisions: []
 arbitrate: { verdict: pass, findings: [] }
+track: { track: full }

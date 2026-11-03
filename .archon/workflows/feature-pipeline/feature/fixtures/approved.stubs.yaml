@@ -29,3 +29,4 @@ planning__verdict: &verdict
   stopped: null
 gate: { decision: approve, text: "" }
 approval: ""
+planning__track: { track: full }

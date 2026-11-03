@@ -20,3 +20,4 @@ planning__verdict: &verdict
   questions: []
   question: ""
   stopped: null
+planning__track: { track: full }

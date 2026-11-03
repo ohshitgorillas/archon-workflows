@@ -1,0 +1,15 @@
+exec-code: true
+fixture:
+  expect: completed
+  reached: [recall, track, rounds, spec, hold, arbitrate, round, verdict, keep]
+  inputs: { design: docs/d.md, scope: "u1", survey: "gate tail", carry: "none" }
+  resolved-text-contains:
+    keep: '"verdict":"pass","recalled":false,"findings":[]'
+track: { track: tests-only }
+spec:
+  lines:
+    - { id: t1, step: null, claim: a works, mark: GREEN, preserves: a returns 1, file: tests/test_a.py, shared: [], setup: null, assertion: a returns 1 }
+  helpers: []
+  steps: [{ id: w1, before: null, lines: [t1], paths: [tests/test_a.py], check: "make test-a", blocked_by: [] }]
+  decisions: []
+arbitrate: { verdict: pass, findings: [] }

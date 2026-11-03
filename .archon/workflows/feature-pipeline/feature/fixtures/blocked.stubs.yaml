@@ -11,3 +11,4 @@ plan:
   steps: [{ id: c1, unit: request, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [d1] }]
   decisions: [{ id: d1, question: q, recommend: r, alternative: a, cost: c }]
 escalate: { text: "go with r" }
+planning__track: { track: full }
