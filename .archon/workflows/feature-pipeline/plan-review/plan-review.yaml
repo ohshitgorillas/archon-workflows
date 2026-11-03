@@ -595,57 +595,91 @@ nodes:
             required: [next, addressed, plan, spec, findings, questions, resume]
 
   - id: verdict
+    runtime: uv
     depends_on: [recall, rounds]
     trigger_rule: all_done
     mutates_checkout: false
     timeout: 60000
-    bash: |
-      set -euo pipefail
-      recall=$recall.output
-      last=$rounds.output
-      [ -n "$last" ] || last=null
-      jq -nc --slurpfile recall <(printf '%s' "$recall") --slurpfile last <(printf '%s' "$last") '
-        def one($n): if length == 1 then .[0] else error("verdict: \($n) is not one JSON value") end;
-        def gathered($plan; $spec):
-          reduce (($plan.decisions // []) + ($spec.decisions // []))[] as $d ([];
-            if any(.[]; .id == $d.id) then . else . + [$d] end);
-        def asked($qs):
-          [$qs[] | "Decision \(.id): \(.question) Recommend: \(.recommend). Alternative: \(.alternative). Cost: \(.cost)."] | join("\n");
-        ($recall | one("recall")) as $recall | ($last | one("last")) as $last |
-        if $last == null and $recall.next == "reuse" then
-          $recall.record as $r
-          | {
-              verdict: $r.verdict,
-              recalled: true,
-              findings: $r.findings,
-              decisions: $r.decisions,
-              approval: $r.approval,
-              key: $recall.key,
-              plan: $r.plan,
-              spec: $r.spec,
-              questions: [],
-              question: "",
-              stopped: null
-            }
-        elif $last != null and $recall.next == "rounds" then
-          ($last.spec // {}) as $spec
-          | ($last.next == "blocked") as $blocked
-          | {
-              verdict: (if $blocked then "blocked" elif $last.next == "done" then "pass" else "refused" end),
-              recalled: false,
-              findings: $last.findings,
-              decisions: gathered($last.plan; $spec),
-              approval: {state: "none", text: ""},
-              key: $recall.key,
-              plan: $last.plan,
-              spec: $spec,
-              questions: $last.questions,
-              question: asked($last.questions),
-              stopped: (if $blocked then $last + {answers: $recall.answers} else null end)
-            }
-        else
-          error("verdict: recall.next is \u0027\($recall.next)\u0027 but the last round is \(if $last == null then "missing" else "present" end)")
-        end'
+    with:
+      recall: $recall.output
+      round: { from: $rounds.output, if_skipped: null }
+    script: |
+      import json
+      import os
+      import sys
+
+
+      def gathered(plan: dict, spec: dict) -> list:
+          seen = set()
+          kept = []
+          for decision in list(plan.get("decisions") or []) + list(spec.get("decisions") or []):
+              if decision["id"] in seen:
+                  continue
+              seen.add(decision["id"])
+              kept.append(decision)
+          return kept
+
+
+      def asked(questions: list) -> str:
+          return "\n".join(
+              "Decision %s: %s Recommend: %s. Alternative: %s. Cost: %s."
+              % (d["id"], d["question"], d["recommend"], d["alternative"], d["cost"])
+              for d in questions
+          )
+
+
+      def main() -> int:
+          recall = json.loads(os.environ["INPUTS_RECALL"])
+          last = json.loads(os.environ["INPUTS_ROUND"])
+          if last is None and recall["next"] == "reuse":
+              record = recall["record"]
+              result = {
+                  "verdict": record["verdict"],
+                  "recalled": True,
+                  "findings": record["findings"],
+                  "decisions": record["decisions"],
+                  "approval": record["approval"],
+                  "key": recall["key"],
+                  "plan": record["plan"],
+                  "spec": record["spec"],
+                  "questions": [],
+                  "question": "",
+                  "stopped": None,
+              }
+          elif last is not None and recall["next"] == "rounds":
+              spec = last["spec"] if last["spec"] is not None else {}
+              blocked = last["next"] == "blocked"
+              if blocked:
+                  verdict = "blocked"
+              elif last["next"] == "done":
+                  verdict = "pass"
+              else:
+                  verdict = "refused"
+              result = {
+                  "verdict": verdict,
+                  "recalled": False,
+                  "findings": last["findings"],
+                  "decisions": gathered(last["plan"], spec),
+                  "approval": {"state": "none", "text": ""},
+                  "key": recall["key"],
+                  "plan": last["plan"],
+                  "spec": spec,
+                  "questions": last["questions"],
+                  "question": asked(last["questions"]),
+                  "stopped": dict(last, answers=recall["answers"]) if blocked else None,
+              }
+          else:
+              print(
+                  "verdict: recall.next is %r but the last round is %s"
+                  % (recall["next"], "missing" if last is None else "present"),
+                  file=sys.stderr,
+              )
+              return 1
+          print(json.dumps(result, separators=(",", ":")))
+          return 0
+
+
+      sys.exit(main())
     output_format:
       type: object
       properties:
@@ -695,7 +729,6 @@ nodes:
           findings: $answer.findings,
           decisions: $answer.decisions,
           approval: $answer.approval,
-          answers: $found.answers,
-          stopped: $answer.stopped
+          answers: $found.answers
         }' > "$dir/$key.json.tmp"
       mv "$dir/$key.json.tmp" "$dir/$key.json"
