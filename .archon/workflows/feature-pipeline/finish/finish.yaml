@@ -112,8 +112,12 @@ nodes:
                 printf '%s\n' "$paths" | while IFS= read -r p; do
                   [ -n "$p" ] && git add -A -- "$p"
                 done
-                git commit --no-edit >&2 || exit $?
-                merged=true
+                if out=$(git commit --no-edit 2>&1); then
+                  merged=true
+                else
+                  reason="the merge commit was refused: $(printf '%s' "$out" | tail -c 3000)"
+                fi
+                printf '%s\n' "$out" >&2
               fi
             fi
             jq -n --argjson m "$merged" --arg p "$paths" --arg r "$reason" '{merged: $m, paths: $p, reason: $r}'
@@ -128,7 +132,7 @@ nodes:
         - id: unmerged
           depends_on: [merge]
           when: "$merge.output.merged != true"
-          cancel: "finish stopped: the merge of the land branch left conflicts it could not resolve. Paths: $merge.output.paths Reason: $merge.output.reason"
+          cancel: "finish stopped: the merge of the land branch could not be committed. Paths: $merge.output.paths Reason: $merge.output.reason"
 
         - id: planning
           include: plan-review
