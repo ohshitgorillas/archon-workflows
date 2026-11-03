@@ -2,8 +2,10 @@ name: finish
 description: >-
   Finishes an approved design in an existing checkout and lands it. Each cycle merges the
   land branch, plans the code and test steps, builds every unblocked step, runs the full
-  gate and checks that committed tests match their spec lines. The owner is asked only the
-  decisions that survived review. Lands by fast-forward only; nothing pushes. Start with
+  gate and checks that committed tests match their spec lines. The owner is asked the open
+  decisions, a refused plan-review, product questions from design gaps and stuck steps, and
+  any cap hit (the build's fix cap, the cycle cap) with what is outstanding. Lands by
+  fast-forward only; nothing pushes. Start with
   --cwd set to the branch's checkout.
 provider: claude
 model: claude-opus-5-5
@@ -150,16 +152,28 @@ nodes:
             gate: $gate.output.status
             pin: $bail.output.pin
             open: $bail.output.open
+            question: $bail.output.question
+            pins: $bail.output.findings
+            tail: $gate.output.tail
             build: { from: $build.output, if_skipped: null }
+            prior: $LOOP_PREV.tally.output.cycle
           script: |
             import json
             import os
+
+            CYCLES = 4
+            FIXES = 2
 
             verdict = os.environ["INPUTS_VERDICT"]
             gate = os.environ["INPUTS_GATE"]
             pin = os.environ["INPUTS_PIN"]
             opened = json.loads(os.environ["INPUTS_OPEN"])
+            question = os.environ["INPUTS_QUESTION"]
+            pins = json.loads(os.environ["INPUTS_PINS"])
+            tail = os.environ["INPUTS_TAIL"]
             build = json.loads(os.environ["INPUTS_BUILD"])
+            prior = os.environ["INPUTS_PRIOR"].strip()
+            cycle = (int(prior) if prior else 0) + 1
             done = (
                 verdict == "pass"
                 and gate == "green"
@@ -168,19 +182,57 @@ nodes:
                 and build is not None
                 and build["remaining"] == 0
             )
-            print(json.dumps({"done": done, "build": build}, separators=(",", ":")))
+            limits = []
+            if build is not None and build["stuck"]:
+                limits.append(
+                    "The build stopped these steps at its cap of %d fixes per step: %s. "
+                    "Last review findings: %s. Design gaps: %s."
+                    % (
+                        FIXES,
+                        ", ".join(build["stuck"]),
+                        json.dumps(build.get("findings") or []),
+                        json.dumps(build["design_gaps"]),
+                    )
+                )
+            if not done and cycle >= CYCLES:
+                outstanding = []
+                if verdict != "pass":
+                    outstanding.append("plan-review refused the Plan and Spec at its caps")
+                if build is not None and build["remaining"] > 0:
+                    outstanding.append("%d buildable steps not yet built" % build["remaining"])
+                if gate != "green":
+                    outstanding.append("the full gate is red; its tail: " + tail)
+                if pin != "ok":
+                    outstanding.append("the pin check is broken: " + json.dumps(pins))
+                if opened > 0:
+                    outstanding.append("%d owner decisions are open" % opened)
+                limits.append(
+                    "finish has run cycle %d of its cap of %d without landing. Outstanding: %s. "
+                    "Answer to run one more cycle with your answer carried into it."
+                    % (cycle, CYCLES, "; ".join(outstanding) or "none named")
+                )
+            text = "\n\n".join(part for part in [question] + limits if part)
+            print(
+                json.dumps(
+                    {"done": done, "build": build, "cycle": cycle, "ask": bool(text), "question": text},
+                    separators=(",", ":"),
+                )
+            )
           output_format:
             type: object
             properties:
               done: { type: boolean }
               build: { type: [object, "null"] }
-            required: [done, build]
+              cycle: { type: integer }
+              ask: { type: boolean }
+              question: { type: string }
+            required: [done, build, cycle, ask, question]
 
         - id: ask
           depends_on: [tally]
-          when: "$bail.output.open > 0"
+          when: "$tally.output.ask == true"
           wait:
-            attention: $bail.output.question
+            attention: $tally.output.question
 
   - id: land
     depends_on: [cycle]

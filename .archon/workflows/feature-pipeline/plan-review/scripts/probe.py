@@ -269,6 +269,7 @@ def main() -> int:
                     "target": step.get("id", ""),
                     "cause": f"check `{step.get('check', '')}`: {hit.cause}",
                     "fix": hit.fix,
+                    "severity": "blocking",
                     "design_it_in": False,
                 }
             )

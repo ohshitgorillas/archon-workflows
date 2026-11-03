@@ -1,7 +1,8 @@
 name: build-loop
 description: >-
   Building block, include only; not for a standalone run. Builds one step per iteration,
-  test steps and code steps alike, in the build order of the Plan and Spec: a writer, the
+  test steps and code steps alike, in the build order of the Plan and Spec (test-only steps
+  last; a step waits on the decisions and earlier steps its blocked_by names): a writer, the
   step's own section check, a commit of the step's paths, then a review. Fixes go by cause,
   at most 2 per step; past that the step is stuck and leaves the loop. Returns the last
   review.

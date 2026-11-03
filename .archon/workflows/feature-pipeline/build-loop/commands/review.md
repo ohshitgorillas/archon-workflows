@@ -30,8 +30,10 @@ Check:
 Answer:
 - verdict pass: no finding. verdict fix: findings by cause, one entry per cause, with fixes_used one more than the previous count for this step. verdict stuck: this step has already used 2 fixes and still fails, or the writer reported a design_gap.
 - fixes_used: fixes spent on this step, at most 2. It is 0 when the step passes first time.
-- next: after pass or stuck, the id of the next step in build order that is unblocked (empty blocked_by), not done, not stuck, and, for a code step, whose test step is not stuck. After fix, the same step. null when none is left.
-- remaining: the count of unblocked steps not yet passed and not stuck, counting a step whose test step is stuck as not buildable this cycle. 0 ends the loop.
+- Build order is the Plan's step order, with each Spec test step placed directly before the Plan code step its `before` names; test steps whose `before` is null (test-only work) come after every Plan step, in Spec order.
+- A step is unblocked when every entry of its blocked_by is cleared. A decision id is never cleared this cycle (the owner's answer is pending). A step id is cleared once that step is in done (built with its check green); a step id that is stuck, or not yet done, leaves the dependent step unbuilt.
+- next: after pass or stuck, the id of the next step in build order that is unblocked, not done, not stuck, and, for a code step, whose test step is not stuck. After fix, the same step. null when none is left.
+- remaining: the count of steps not yet passed and not stuck that are unblocked or can still be unblocked this cycle (every blocked_by entry is a step id that is done or can itself still be built this cycle), counting a step whose test step is stuck, or that waits on a stuck step, as not buildable this cycle. 0 ends the loop.
 - done: the previous done plus this step when it passed.
 - stuck: the previous stuck plus this step when it is stuck.
 - design_gaps: the previous gaps plus the writer's design_gap, if any.
