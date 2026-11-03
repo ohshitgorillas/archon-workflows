@@ -201,7 +201,8 @@ nodes:
                         json.dumps(build["design_gaps"]),
                     )
                 )
-            if not done and cycle >= CYCLES:
+            capped = not done and cycle >= CYCLES
+            if capped:
                 outstanding = []
                 if verdict == "refused":
                     outstanding.append("plan-review refused the Plan and Spec at its caps")
@@ -216,14 +217,13 @@ nodes:
                 if opened > 0:
                     outstanding.append("%d owner decisions are open" % opened)
                 limits.append(
-                    "finish has run cycle %d of its cap of %d without landing. Outstanding: %s. "
-                    "Answer to run one more cycle with your answer carried into it."
+                    "finish has run cycle %d of its cap of %d without landing. Outstanding: %s."
                     % (cycle, CYCLES, "; ".join(outstanding) or "none named")
                 )
             text = "\n\n".join(part for part in [blocking, question] + limits if part)
             print(
                 json.dumps(
-                    {"done": done, "build": build, "cycle": cycle, "ask": bool(text), "question": text},
+                    {"done": done, "build": build, "cycle": cycle, "ask": bool(text) and not capped, "question": text},
                     separators=(",", ":"),
                 )
             )

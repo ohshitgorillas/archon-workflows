@@ -50,11 +50,18 @@ nodes:
           mutates_checkout: false
           bash: |
             result=$planning.output
-            printf '%s' "$result"
+            prior=$LOOP_PREV.settled.output.pass
+            printf '{"pass":%d,"planning":%s}' "$(( ${prior:-0} + 1 ))" "$result"
+          output_format:
+            type: object
+            properties:
+              pass: { type: integer }
+              planning: { type: object }
+            required: [pass, planning]
 
         - id: escalate
           depends_on: [settled]
-          when: "$planning.output.verdict == 'blocked'"
+          when: "$planning.output.verdict == 'blocked' && $settled.output.pass < '4'"
           wait:
             attention: $planning.output.question
 
@@ -62,7 +69,7 @@ nodes:
     depends_on: [review]
     mutates_checkout: false
     bash: |
-      result=$review.output
+      result=$review.output.planning
       printf '%s' "$result"
     output_format:
       type: object
