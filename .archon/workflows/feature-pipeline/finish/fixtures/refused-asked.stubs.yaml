@@ -1,11 +1,12 @@
 exec-code: true
 fixture:
-  expect: completed
+  expect: cancelled
   inputs: { design: docs/d.md, scope: "12a", full_check: "make check", branch: feat, land_branch: main, land_checkout: /tmp/land }
-  reached: [baseline, cycle, sync, gate, bail, tally, ask]
+  reached: [baseline, cycle, sync, gate, bail, tally, ask, cycled, limit]
   resolved-text-contains:
     bail: "one decision with id `refused`"
     ask: "Decision refused: planning spent its caps"
+    limit: "finish stopped at its cap of 4 cycles without landing. Still open: Decision refused: planning spent its caps"
 baseline: { status: green, tail: ok }
 sync: ""
 plan:
@@ -14,5 +15,4 @@ plan:
 prosecute: { verdict: fail, findings: [{ author: plan, target: c1, cause: x, basis: y, severity: blocking, design_it_in: false }] }
 gate: { status: green, tail: ok }
 bail: { pin: ok, findings: [], open: 1, decisions: [{ id: refused, question: "Planning spent its caps; c1 still fails x.", recommend: r, alternative: a, cost: c }], question: "Decision refused: planning spent its caps (4 Plan attempts, 4 Spec attempts); finding on c1: x. Recommend r; alternative a; cost c." }
-land: ""
 ask: { text: "go with r" }

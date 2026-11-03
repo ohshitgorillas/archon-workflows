@@ -72,8 +72,13 @@ nodes:
     when: "$planned.output.verdict == 'refused'"
     cancel: "The Plan and Spec still fail review at the Plan or Spec cap. Findings: $planned.output.findings"
 
+  - id: limit
+    depends_on: [planned]
+    when: "$planned.output.verdict == 'blocked'"
+    cancel: "Planning is still blocked after 4 passes, the cap on blocking decisions in a run. Still open: $planned.output.question"
+
   - id: gate
-    depends_on: [planned, refused]
+    depends_on: [planned, refused, limit]
     trigger_rule: none_failed_min_one_success
     when: "$planned.output.approval.state != 'approved'"
     wait:

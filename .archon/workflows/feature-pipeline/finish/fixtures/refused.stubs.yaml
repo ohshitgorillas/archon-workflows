@@ -1,8 +1,8 @@
 exec-code: true
 fixture:
-  expect: completed
+  expect: cancelled
   inputs: { design: docs/d.md, scope: "12a", full_check: "make check", branch: feat, land_branch: main, land_checkout: /tmp/land }
-  reached: [baseline, cycle, sync, gate, bail, tally, ask]
+  reached: [baseline, cycle, sync, gate, bail, tally, ask, cycled, limit]
 baseline: { status: green, tail: ok }
 sync: ""
 plan:
@@ -11,5 +11,4 @@ plan:
 prosecute: { verdict: fail, findings: [{ author: plan, target: c1, cause: x, basis: y, severity: blocking, design_it_in: false }] }
 gate: { status: green, tail: ok }
 bail: { pin: ok, findings: [], open: 1, decisions: [{ id: d1, question: q, recommend: r, alternative: a, cost: c }], question: "Decision d1: q. Recommend r; alternative a; cost c." }
-land: ""
 ask: { text: "go with r" }

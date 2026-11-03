@@ -1,10 +1,11 @@
 exec-code: true
 fixture:
-  expect: completed
+  expect: cancelled
   inputs: { design: docs/d.md, scope: "12a", full_check: "make check", branch: feat, land_branch: main, land_checkout: /tmp/land }
-  reached: [baseline, cycle, sync, planning__verdict, tally, ask]
+  reached: [baseline, cycle, sync, planning__verdict, tally, ask, cycled, limit]
   resolved-text-contains:
     ask: "Decision d1: q Recommend: r. Alternative: a. Cost: c."
+    limit: "finish stopped at its cap of 4 cycles without landing. Still open: Decision d1: q Recommend: r. Alternative: a. Cost: c."
 baseline: { status: green, tail: ok }
 sync: ""
 plan:
@@ -18,5 +19,4 @@ commit: { committed: true, status: "" }
 review: { verdict: pass, findings: [], fixes_used: 0, next: null, remaining: 0, done: [c1], stuck: [], design_gaps: [], stray: [] }
 gate: { status: green, tail: ok }
 bail: { pin: ok, findings: [], open: 0, decisions: [], question: "" }
-land: ""
 ask: { text: "go with r" }

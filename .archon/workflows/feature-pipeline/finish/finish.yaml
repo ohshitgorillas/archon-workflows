@@ -243,6 +243,21 @@ nodes:
           wait:
             attention: $tally.output.question
 
-  - id: land
+  - id: cycled
     depends_on: [cycle]
+    mutates_checkout: false
+    bash: |
+      result=$cycle.output
+      printf '%s' "$result"
+    output_format:
+      type: object
+
+  - id: limit
+    depends_on: [cycled]
+    when: "$cycled.output.done != 'true'"
+    cancel: "finish stopped at its cap of 4 cycles without landing. Still open: $cycled.output.question"
+
+  - id: land
+    depends_on: [cycled, limit]
+    trigger_rule: none_failed_min_one_success
     bash: git -C "$INPUTS_LAND_CHECKOUT" merge --ff-only "$INPUTS_BRANCH"
