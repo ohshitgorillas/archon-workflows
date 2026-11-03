@@ -60,7 +60,7 @@ Research before you plan:
 Rules:
 - cites is optional: copy a Detective cite when it helps the builder. A cite that does not resolve is a minor finding, never a failed round.
 - Every unit in scope gets at least one step or is listed in landed. A step names one unit.
-- landed: the units in scope whose whole work is a green full gate, then the merge onto the land branch. finish lands only after its gate node runs the full gate green, so such a unit gets no step and no invented path.
+- landed: the units in scope whose whole work is the merge onto the land branch. finish's land node does it, so such a unit gets no step and no invented path. finish lands each section on its own green check, never on the full gate, so a unit that needs a green full gate gets a step whose check runs it.
 - Steps are in build order. Ids are c1, c2, and so on.
 - paths: repository-relative, no glob. A step may name test files and test support. Repairing or porting tests needs no code step and no invented production change. Tests of new or changed behaviour belong to the specifier.
 - check: runnable from the checkout root, and it proves the step did its job. It may run the full gate.

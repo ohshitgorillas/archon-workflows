@@ -219,13 +219,11 @@ nodes:
             verdict: $planning.output.verdict
             blocking: $planning.output.question
             refusal: $planning.output.findings
-            gate: { from: $gate.output.status, if_skipped: skipped }
             pin: { from: $bail.output.pin, if_skipped: skipped }
             open: { from: $bail.output.open, if_skipped: 0 }
             decisions: { from: $bail.output.decisions, if_skipped: [] }
             question: { from: $bail.output.question, if_skipped: "" }
             pins: { from: $bail.output.findings, if_skipped: [] }
-            tail: { from: $gate.output.tail, if_skipped: "" }
             build: { from: $build.output, if_skipped: null }
             prior: $LOOP_PREV.tally.output.cycle
           script: |
@@ -235,7 +233,6 @@ nodes:
             CYCLES = 4
 
             verdict = os.environ["INPUTS_VERDICT"]
-            gate = os.environ["INPUTS_GATE"]
             pin = os.environ["INPUTS_PIN"]
             opened = json.loads(os.environ["INPUTS_OPEN"])
             decisions = json.loads(os.environ["INPUTS_DECISIONS"])
@@ -243,7 +240,6 @@ nodes:
             refusal = json.loads(os.environ["INPUTS_REFUSAL"])
             question = os.environ["INPUTS_QUESTION"]
             pins = json.loads(os.environ["INPUTS_PINS"])
-            tail = os.environ["INPUTS_TAIL"]
             build = json.loads(os.environ["INPUTS_BUILD"])
             prior = os.environ["INPUTS_PRIOR"].strip()
             cycle = (int(prior) if prior else 0) + 1
@@ -277,7 +273,6 @@ nodes:
             done = (
                 not stop
                 and verdict == "pass"
-                and gate == "green"
                 and pin == "ok"
                 and opened == 0
                 and build is not None
@@ -293,8 +288,6 @@ nodes:
                     outstanding.append("%d owner decisions: %s" % (opened, question))
                 if build is not None and build["remaining"] > 0:
                     outstanding.append("%d buildable steps not yet built" % build["remaining"])
-                if gate != "green" and gate != "skipped":
-                    outstanding.append("the full gate is red; its tail: " + tail)
                 if pin == "broken":
                     outstanding.append("the pin check is broken: " + json.dumps(pins))
 
