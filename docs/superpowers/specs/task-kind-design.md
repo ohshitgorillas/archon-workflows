@@ -1,38 +1,24 @@
-Status: approved. Owner, 2026-11-02: "fix the goddamn plan file yourself and then execute it through subagents directly"; cut to the request after "this is an extremely simple and small task".
+Status: approved. Owner, 2026-11-02: "fix the goddamn plan file yourself and then execute it through subagents directly"; then "this is an extremely simple and small task" and "what is the point of having a fucking zero-code plan reviewed".
 
 ## Why
 
-The `feature-pipeline` pack runs every task down one path: a Plan of code steps, then a Spec of tests. A tests-only task (refactor a test suite) cannot be planned, because the Plan's `steps` has `minItems: 1` in `plan-review/plan-review.yaml`. A test-free task (refactor the code, keep behaviour) always goes through the specifier, which may write tests the task should not touch.
+`plan-review` runs every task down one path: Plan rounds (planner, prosecutor), then Spec rounds (specifier, arbiter). A tests-only task (refactor a test suite) has no code to plan, and a test-free task (refactor the code, keep behaviour) has no tests to spec, yet both go through both.
 
 ## Change
 
 All paths are under `.archon/workflows/feature-pipeline/plan-review/`. Nothing else in the pack changes.
 
-### `plan-review.yaml`
+- A first node, `track`, reads the design and scope and returns `full`, `tests-only` or `test-free`. `tests-only`: only tests and test support change. `test-free`: production code changes, behaviour is kept, no test changes. `full`: anything else, and whenever the design does not settle it. Nothing reviews it.
+- `tests-only`: no Plan round runs. The Plan is empty (`steps: []`; `minItems: 1` goes) and the Spec rounds run as now.
+- `test-free`: the Plan rounds run as now; no Spec round runs, and the Spec is empty.
+- `full`: unchanged.
 
-```yaml
-# plan's output_format gains (optional; absent means full):
-track: { type: string, enum: [full, tests-only, test-free] }
-# plan's steps: minItems 1 removed
+## Fixtures
 
-# round, plan-round branch, when no blocking finding is filed:
-#   track test-free -> next: done, spec: {lines: [], helpers: [], steps: [], decisions: []}
-#   otherwise       -> next: spec (as now)
-```
-
-### `commands/plan.md`
-
-The planner sets `track` from the design's words:
-
-- `tests-only`: only tests and test support change. The Plan has no code step.
-- `test-free`: production code changes, behaviour is kept, and no test or test support changes. No step path is a test file or test support.
-- `full`: anything else, and whenever the design does not settle it.
-
-### Fixtures
-
-- `fixtures/tests-only.stubs.yaml`: `plan` returns `track: tests-only` and `steps: []`; the run reaches `spec` and passes.
-- `fixtures/test-free.stubs.yaml`: `plan` returns `track: test-free` and one code step; `spec` and `arbitrate` are not reached; `verdict` passes with the empty Spec.
+- `fixtures/tests-only.stubs.yaml`: `track` returns `tests-only`; `plan` and `prosecute` are not reached; the Spec rounds pass.
+- `fixtures/test-free.stubs.yaml`: `track` returns `test-free`; `spec` and `arbitrate` are not reached; the Plan rounds pass.
+- Existing fixtures stub `track` as `full`.
 
 ## Order
 
-1. `workflow-builder`: `plan-review/plan-review.yaml`, `plan-review/commands/plan.md`, the two new fixtures. Done-check: the "Checking the pack" home of `docs/superpowers/specs/feature-pipeline-finish-design.md`.
+1. `workflow-builder`: `plan-review/plan-review.yaml`, a command file for `track` if the node needs one, and the fixtures above. Done-check: the "Checking the pack" home of `docs/superpowers/specs/feature-pipeline-finish-design.md`.
