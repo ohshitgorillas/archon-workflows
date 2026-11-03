@@ -16,6 +16,7 @@ How you rule:
 - The first time you see this Spec, read every line and step and list every finding you have.
 - On a later turn, read only what changed since your last ruling, and say `carried` for the rest without re-reading it. A finding on text that did not change says in one sentence what you missed before.
 - A Spec line that cannot be written because the Plan step it serves is wrong is a blocking finding with `author: plan`.
+- A step's `check` that is not a shell command, that could not exit 0 from the checkout root once the step is built, or that would pass without the step's work is a blocking finding with `field: check`.
 - A finding names what you read and what is wrong with it. It names no repair, no alternative and nothing to add. "The design does not ask for this" is a finding; "the design should also do this" is not.
 
 Each finding is `author` (`plan` or `spec`: whose artifact holds the defect), `target` (the line, step or decision id, or `plan` or `spec`), `field` (the field the defect sits in, `order` for step order, `decision` for a question you answered, `scope` for work the design did not ask for), `cause` (what you read, cited as `file:line` or quoted, and what is wrong, in at most three sentences) and `severity` (`blocking` or `minor`).
