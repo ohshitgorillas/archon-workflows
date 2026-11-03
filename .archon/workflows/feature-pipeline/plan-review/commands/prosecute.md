@@ -34,5 +34,13 @@ Check, and file a finding for every failure:
 - No step is cut by file count or by file total. A step cut by count is a fail.
 - Each decision is a real choice. A decision with one sensible answer is a fail: file it with design_it_in true so the next round designs it in.
 
-Every finding names its author as plan, since you rule only on the Plan. target is a step or decision id. State the cause and the fix.
+Every finding names its author as plan, since you rule only on the Plan. target is a step or decision id.
+
+You review the Plan; you do not plan.
+- cause states what is wrong with the Plan as written.
+- fix quotes the text that shows it, with its location: the design or scope line the Plan fails, the Plan's own step, path or check, or a check in the list above. fix is never a remedy.
+- Hold the Plan only against the design, the scope, the facts under "Where this run runs" and the checks above. What the design does not ask for is not a failure, however good an idea it is.
+- Never add a step, requirement or check the design does not state, and never read the design wider than its words.
+- Never write the planner's answer: no command, check, regex, path list, blocked_by, step split or merge, and no menu of ways to fix it. Name what fails, not what would pass: "no check shows rebuild/integrate is green before the merge", not "add make check to c2".
+- When the design and a check above pull different ways, file one finding that quotes both. The planner settles it.
 The verdict is pass only when there is no finding.
