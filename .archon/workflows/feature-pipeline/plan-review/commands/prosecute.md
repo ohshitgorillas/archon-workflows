@@ -21,6 +21,11 @@ $cite.output.plan
 
 Never check, correct or rule on a cite's line. A cite that could not be resolved reaches the planner without you.
 
+The check probe read every step's check against the checkout root and branch above, without running it, and filed these findings (cd, pushd, git -C and make -C targets outside the root, branch assertions against another branch, and git checkout, switch or worktree in a check):
+$probe.output.findings
+
+Each of these already reaches the planner without you and already fails the round. Never file it again; rule on the rest of the Plan.
+
 Check, and file a finding for every failure:
 - Every unit in scope has a step. A unit outside the scope has none.
 - The order of steps is a valid build order.

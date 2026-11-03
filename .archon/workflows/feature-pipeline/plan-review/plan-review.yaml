@@ -5,8 +5,9 @@ description: >-
   another run wrote, that passed review and that the owner has not rejected, is reused as
   it stands, and no round or agent runs. Otherwise, strictly in order and starting from the
   recalled record when there is one: the planner cuts the code steps from the Detective's
-  file:line answers, a citation resolver checks and corrects every cite, and the prosecutor
-  rules on the Plan; only on a pass does the specifier write the test spec against that
+  file:line answers, a citation resolver checks and corrects every cite, a check probe reads
+  every step's check against the run's checkout root and branch without running it, and the
+  prosecutor rules on the Plan; only on a pass with no unresolved cite and no probe finding does the specifier write the test spec against that
   approved Plan, measuring through the Examiner on a throwaway copy, and the arbiter rule on
   the Spec. An arbiter finding against the Plan reopens it. At most 4 Plan attempts and 4
   Spec attempts per call. Returns the Plan and Spec, a verdict of pass or refused, the
@@ -218,9 +219,35 @@ nodes:
                   required: [step, path, line, quote, reason]
             required: [plan, unresolved]
 
+        - id: probe
+          script: probe
+          runtime: uv
+          depends_on: [plan]
+          mutates_checkout: false
+          timeout: 60000
+          with:
+            plan: $plan.output
+            root: $recall.output.root
+            branch: $recall.output.branch
+          output_format:
+            type: object
+            properties:
+              findings:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    author: { type: string, enum: [plan] }
+                    target: { type: string }
+                    cause: { type: string }
+                    fix: { type: string }
+                    design_it_in: { type: boolean }
+                  required: [author, target, cause, fix, design_it_in]
+            required: [findings]
+
         - id: prosecute
           command: prosecute
-          depends_on: [cite]
+          depends_on: [cite, probe]
           context: fresh
           mutates_checkout: false
           allowed_tools: [Read, Grep, Glob]
@@ -365,16 +392,18 @@ nodes:
           mutates_checkout: false
           bash: |
             cite=$cite.output
+            probe=$probe.output
             prosecute=$prosecute.output
             spec=$spec.output
             arbitrate=$arbitrate.output
             prev=$LOOP_PREV.round.output
             [ -n "$cite" ] || cite=null
+            [ -n "$probe" ] || probe=null
             [ -n "$prosecute" ] || prosecute=null
             [ -n "$spec" ] || spec=null
             [ -n "$arbitrate" ] || arbitrate=null
             [ -n "$prev" ] || prev=null
-            jq -nc --argjson resolved "$cite" --argjson ruling "$prosecute" --argjson written "$spec" --argjson arbiter "$arbitrate" --argjson last "$prev" '
+            jq -nc --argjson resolved "$cite" --argjson probed "$probe" --argjson ruling "$prosecute" --argjson written "$spec" --argjson arbiter "$arbitrate" --argjson last "$prev" '
               ($last // {}) as $p
               | ($p.cuts // 0) as $cuts
               | ($p.specs // 0) as $specs
@@ -386,13 +415,15 @@ nodes:
                     fix: "cite the line whose text is the quote",
                     design_it_in: false
                   })) as $uncited
+                  | (($probed // {}).findings // []) as $checks
                   | {
-                      next: (if $ruling.verdict == "pass" and ($uncited | length) == 0 then "spec" else "plan" end),
+                      next: (if $ruling.verdict == "pass" and ($uncited | length) == 0 and ($checks | length) == 0
+                             then "spec" else "plan" end),
                       cuts: ($cuts + 1),
                       specs: $specs,
                       plan: $resolved.plan,
                       spec: ($p.spec // null),
-                      findings: ($ruling.findings + $uncited + (($p.findings // []) | map(select(.author == "spec"))))
+                      findings: ($ruling.findings + $uncited + $checks + (($p.findings // []) | map(select(.author == "spec"))))
                     }
                 else
                   {

@@ -1,7 +1,7 @@
 exec-code: true
 fixture:
   expect: completed
-  reached: [recall, rounds, plan, cite, prosecute, round, verdict, keep]
+  reached: [recall, rounds, plan, cite, probe, prosecute, round, verdict, keep]
   inputs: { design: docs/d.md, scope: "u1", survey: "gate tail", carry: "none" }
   resolved-text-contains:
     prosecute: '"line":3,"quote":"gamma line three"'

@@ -1,7 +1,7 @@
 exec-code: true
 fixture:
   expect: completed
-  reached: [recall, rounds, plan, cite, prosecute, round, verdict, keep]
+  reached: [recall, rounds, plan, cite, probe, prosecute, round, verdict, keep]
   inputs:
     design: docs/superpowers/specs/feature-pipeline-build-design.md
     design_ref: 82a6c278e956ae7e018a079c35c5c9bc6d7667f9
