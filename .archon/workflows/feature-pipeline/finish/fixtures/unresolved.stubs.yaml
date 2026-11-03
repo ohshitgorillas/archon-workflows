@@ -1,0 +1,11 @@
+exec-code: true
+fixture:
+  expect: cancelled
+  inputs: { design: docs/d.md, scope: "12a", full_check: "make check", branch: feat, land_branch: main, land_checkout: /tmp/land }
+  reached: [baseline, sync, resolve, merge, unmerged]
+  resolved-text-contains:
+    unmerged: "finish stopped: the merge of the land branch left conflicts it could not resolve. Paths: src/a.py Reason: src/a.py: both sides change the retry limit to different values and nothing settles which holds."
+baseline: { status: green, tail: ok }
+sync: { conflicted: true, paths: "src/a.py" }
+resolve: { resolved: false, reason: "src/a.py: both sides change the retry limit to different values and nothing settles which holds." }
+merge: { merged: false, paths: "src/a.py", reason: "src/a.py: both sides change the retry limit to different values and nothing settles which holds." }

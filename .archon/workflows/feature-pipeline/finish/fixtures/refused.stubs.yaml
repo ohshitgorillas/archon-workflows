@@ -4,7 +4,7 @@ fixture:
   inputs: { design: docs/d.md, scope: "12a", full_check: "make check", branch: feat, land_branch: main, land_checkout: /tmp/land }
   reached: [baseline, cycle, sync, gate, bail, tally, ask, cycled, limit]
 baseline: { status: green, tail: ok }
-sync: ""
+sync: { conflicted: false, paths: "" }
 plan:
   steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
   decisions: []

@@ -6,7 +6,7 @@ fixture:
   resolved-text-contains:
     prosecute: "- Land branch: main\n- Land checkout: /tmp/land\n"
 baseline: { status: green, tail: ok }
-sync: ""
+sync: { conflicted: false, paths: "" }
 plan:
   steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
   decisions: []

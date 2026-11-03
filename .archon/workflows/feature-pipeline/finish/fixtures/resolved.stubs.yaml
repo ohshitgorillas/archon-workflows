@@ -1,0 +1,39 @@
+exec-code: true
+fixture:
+  expect: completed
+  inputs: { design: docs/d.md, scope: "12a", full_check: "make check", branch: feat, land_branch: main, land_checkout: /tmp/land }
+  reached: [baseline, cycle, sync, resolve, merge, planning__verdict, gate, bail, tally, land]
+  resolved-text-contains:
+    prosecute: "- Land branch: main\n- Land checkout: /tmp/land\n"
+    resolve: "Conflicted paths, one per line:\nsrc/a.py\n"
+baseline: { status: green, tail: ok }
+sync: { conflicted: true, paths: "src/a.py" }
+resolve: { resolved: true, reason: "" }
+merge: { merged: true, paths: "src/a.py", reason: "" }
+plan:
+  steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+  decisions: []
+prosecute: { verdict: pass, findings: [] }
+planning__verdict:
+  verdict: pass
+  plan:
+    steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+    decisions: []
+  spec: { lines: [], helpers: [], steps: [], decisions: [] }
+  findings: []
+  decisions: []
+  recalled: false
+  approval: { state: none, text: "" }
+  key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+  questions: []
+  question: ""
+  stopped: null
+build__before: ""
+write: { step_id: c1, paths: [src/a.py], check: "make check-a", design_gap: null }
+check: { status: green, tail: ok }
+commit: { committed: true, status: "" }
+review: { verdict: pass, findings: [], fixes_used: 0, next: null, remaining: 0, done: [c1], stuck: [], design_gaps: [], stray: [] }
+gate: { status: green, tail: ok }
+bail: { pin: ok, findings: [], open: 0, decisions: [], question: "" }
+land: ""
+planning__track: { track: full }

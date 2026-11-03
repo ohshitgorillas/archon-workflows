@@ -6,7 +6,7 @@ fixture:
   resolved-text-contains:
     ask: "The build stopped these steps at its cap of 2 fixes per step: c1. Last review findings: [{\"cause\": \"check red\", \"basis\": \"check red\"}]."
 baseline: { status: green, tail: ok }
-sync: ""
+sync: { conflicted: false, paths: "" }
 plan:
   steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
   decisions: []

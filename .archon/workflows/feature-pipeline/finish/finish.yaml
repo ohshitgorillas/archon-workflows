@@ -62,18 +62,75 @@ nodes:
       nodes:
         - id: sync
           bash: |
-            git merge --no-edit "$INPUTS_LAND_BRANCH" >&2 && exit 0
+            git merge --no-edit "$INPUTS_LAND_BRANCH" >&2
             rc=$?
-            if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
-              git diff --name-only --diff-filter=U
-              git merge --abort
+            if [ "$rc" -eq 0 ]; then
+              jq -n '{conflicted: false, paths: ""}'
+            elif git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+              paths=$(git diff --name-only --diff-filter=U)
+              jq -n --arg p "$paths" '{conflicted: true, paths: $p}'
             else
               exit $rc
             fi
+          output_format:
+            type: object
+            properties:
+              conflicted: { type: boolean }
+              paths: { type: string }
+            required: [conflicted, paths]
+
+        - id: resolve
+          command: resolve
+          depends_on: [sync]
+          when: "$sync.output.conflicted == true"
+          context: fresh
+          allowed_tools: [Read, Edit, Grep, Glob]
+          output_format:
+            type: object
+            properties:
+              resolved: { type: boolean }
+              reason: { type: string }
+            required: [resolved, reason]
+
+        - id: merge
+          depends_on: [resolve]
+          bash: |
+            resolved=$resolve.output.resolved
+            reason=$resolve.output.reason
+            paths=$(git diff --name-only --diff-filter=U)
+            merged=false
+            if [ "$resolved" = true ]; then
+              left=$(printf '%s\n' "$paths" | while IFS= read -r p; do
+                [ -f "$p" ] && grep -qE '^(<<<<<<<|\|\|\|\|\|\|\||>>>>>>>)( |$)' -- "$p" && printf '%s\n' "$p"
+              done)
+              if [ -n "$left" ]; then
+                reason="conflict markers are left in: $left"
+              else
+                printf '%s\n' "$paths" | while IFS= read -r p; do
+                  [ -n "$p" ] && git add -A -- "$p"
+                done
+                git commit --no-edit >&2 || exit $?
+                merged=true
+              fi
+            fi
+            jq -n --argjson m "$merged" --arg p "$paths" --arg r "$reason" '{merged: $m, paths: $p, reason: $r}'
+          output_format:
+            type: object
+            properties:
+              merged: { type: boolean }
+              paths: { type: string }
+              reason: { type: string }
+            required: [merged, paths, reason]
+
+        - id: unmerged
+          depends_on: [merge]
+          when: "$merge.output.merged != true"
+          cancel: "finish stopped: the merge of the land branch left conflicts it could not resolve. Paths: $merge.output.paths Reason: $merge.output.reason"
 
         - id: planning
           include: plan-review
-          depends_on: [sync]
+          depends_on: [sync, merge, unmerged]
+          trigger_rule: none_failed_min_one_success
           with:
             design: $INPUTS.design
             design_ref: $INPUTS.land_branch
@@ -89,7 +146,6 @@ nodes:
               Previous plan-review result (plan, spec, findings, verdict): $LOOP_PREV.planning.output
               Previous build result (remaining, stuck, design gaps, stray edits): $LOOP_PREV.tally.output.build
               Previous pin check: $LOOP_PREV.bail.output
-              Conflicted paths from the sync just run: $sync.output
 
         - id: build
           include: build-loop

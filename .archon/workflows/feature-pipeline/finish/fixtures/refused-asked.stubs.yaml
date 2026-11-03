@@ -8,7 +8,7 @@ fixture:
     ask: "Decision refused: planning spent its caps"
     limit: "finish stopped at its cap of 4 cycles without landing. Still open: Decision refused: planning spent its caps"
 baseline: { status: green, tail: ok }
-sync: ""
+sync: { conflicted: false, paths: "" }
 plan:
   steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
   decisions: []
