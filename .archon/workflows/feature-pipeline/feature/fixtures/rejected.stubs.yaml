@@ -19,3 +19,4 @@ planning__verdict:
   key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 gate: { decision: reject, text: "wrong scope" }
 approval: ""
+planning__track: { track: full }

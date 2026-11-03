@@ -1,7 +1,7 @@
 exec-code: true
 fixture:
   expect: completed
-  reached: [recall, rounds, plan, cite, probe, prosecute, round, verdict, keep]
+  reached: [recall, track, rounds, plan, cite, probe, prosecute, round, verdict, keep]
   inputs: { design: docs/d.md, scope: "u1 u2", survey: "gate tail", carry: "none" }
   resolved-text-contains:
     prosecute: '[{"author":"plan","target":"c1","cause":"check `(cd .claude/worktrees/integrate && make check-a)`: cd .claude/worktrees/integrate: /'
@@ -13,3 +13,4 @@ plan:
     - { id: c2, unit: u2, kind: merge, paths: [src/a.py], check: "test \"$(git rev-parse --abbrev-ref HEAD)\" = v2", blocked_by: [c1] }
   decisions: []
 prosecute: { verdict: pass, findings: [] }
+track: { track: full }

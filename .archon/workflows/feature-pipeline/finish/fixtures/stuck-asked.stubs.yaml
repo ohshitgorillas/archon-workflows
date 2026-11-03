@@ -31,3 +31,4 @@ gate: { status: green, tail: ok }
 bail: { pin: ok, findings: [], open: 0, decisions: [], question: "" }
 land: ""
 ask: { text: "drop c1 for now" }
+planning__track: { track: full }

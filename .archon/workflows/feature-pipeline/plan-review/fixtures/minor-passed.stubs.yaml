@@ -1,7 +1,7 @@
 exec-code: true
 fixture:
   expect: completed
-  reached: [recall, rounds, plan, cite, probe, prosecute, round, verdict, keep]
+  reached: [recall, track, rounds, plan, cite, probe, prosecute, round, verdict, keep]
   inputs: { design: docs/d.md, scope: "u1", survey: "gate tail", carry: "none" }
   resolved-text-contains:
     keep: '"findings":[{"author":"plan","target":"c1","cause":"x","basis":"y","severity":"minor","design_it_in":false}]'
@@ -10,3 +10,4 @@ plan:
   landed: [u2]
   decisions: []
 prosecute: { verdict: pass, findings: [{ author: plan, target: c1, cause: x, basis: y, severity: minor, design_it_in: false }] }
+track: { track: full }

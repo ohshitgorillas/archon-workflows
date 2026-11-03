@@ -17,3 +17,4 @@ planning__verdict:
   recalled: true
   approval: { state: approved, text: "ok" }
   key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+planning__track: { track: full }

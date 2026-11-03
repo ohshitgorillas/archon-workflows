@@ -116,8 +116,21 @@ nodes:
         record: { type: [object, 'null'] }
       required: [key, design, design_blob, scope, head, read, from, root, branch, next, record]
 
-  - id: rounds
+  - id: track
+    command: track
     depends_on: [recall]
+    when: "$recall.output.next == 'rounds'"
+    context: fresh
+    mutates_checkout: false
+    allowed_tools: [Read, Grep, Glob]
+    output_format:
+      type: object
+      properties:
+        track: { type: string, enum: [full, tests-only, test-free] }
+      required: [track]
+
+  - id: rounds
+    depends_on: [recall, track]
     when: "$recall.output.next == 'rounds'"
     loop_group:
       max_iterations: 8
@@ -127,7 +140,7 @@ nodes:
       nodes:
         - id: plan
           command: plan
-          when: "$LOOP_PREV.round.output.next != 'spec'"
+          when: "$track.output.track != 'tests-only' && $LOOP_PREV.round.output.next != 'spec'"
           context: fresh
           mutates_checkout: false
           allowed_tools: [Read, Grep, Glob, Agent]
@@ -157,7 +170,6 @@ nodes:
             properties:
               steps:
                 type: array
-                minItems: 1
                 maxItems: 20
                 items:
                   type: object
@@ -277,7 +289,7 @@ nodes:
 
         - id: spec
           command: spec
-          when: "$LOOP_PREV.round.output.next == 'spec'"
+          when: "$track.output.track == 'full' && $LOOP_PREV.round.output.next == 'spec' || $track.output.track == 'tests-only'"
           context: fresh
           mutates_checkout: false
           allowed_tools: [Read, Grep, Glob, Agent]
@@ -404,6 +416,7 @@ nodes:
             prosecute=$prosecute.output
             spec=$spec.output
             arbitrate=$arbitrate.output
+            track=$track.output.track
             prev=$LOOP_PREV.round.output
             [ -n "$cite" ] || cite=null
             [ -n "$probe" ] || probe=null
@@ -411,8 +424,10 @@ nodes:
             [ -n "$spec" ] || spec=null
             [ -n "$arbitrate" ] || arbitrate=null
             [ -n "$prev" ] || prev=null
-            jq -nc --argjson resolved "$cite" --argjson probed "$probe" --argjson ruling "$prosecute" --argjson written "$spec" --argjson arbiter "$arbitrate" --argjson last "$prev" '
-              ($last // {}) as $p
+            jq -nc --argjson resolved "$cite" --argjson probed "$probe" --argjson ruling "$prosecute" --argjson written "$spec" --argjson arbiter "$arbitrate" --argjson last "$prev" --arg track "$track" '
+              {steps: [], decisions: []} as $noplan
+              | {lines: [], helpers: [], steps: [], decisions: []} as $nospec
+              | ($last // {}) as $p
               | ($p.cuts // 0) as $cuts
               | ($p.specs // 0) as $specs
               | if $ruling != null then
@@ -427,21 +442,23 @@ nodes:
                   | (($probed // {}).findings // []) as $checks
                   | ($ruling.findings + $uncited + $checks) as $filed
                   | {
-                      next: (if any($filed[]; .severity == "blocking") then "plan" else "spec" end),
+                      next: (if any($filed[]; .severity == "blocking") then "plan"
+                             elif $track == "test-free" then "done"
+                             else "spec" end),
                       cuts: ($cuts + 1),
                       specs: $specs,
                       plan: $resolved.plan,
-                      spec: ($p.spec // null),
+                      spec: (if $track == "test-free" then $nospec else ($p.spec // null) end),
                       findings: ($filed + (($p.findings // []) | map(select(.author == "spec"))))
                     }
                 else
                   {
-                    next: (if any($arbiter.findings[]; .severity == "blocking" and .author == "plan") then "plan"
+                    next: (if any($arbiter.findings[]; .severity == "blocking" and .author == "plan") then (if $track == "tests-only" then "spec" else "plan" end)
                            elif any($arbiter.findings[]; .severity == "blocking") then "spec"
                            else "done" end),
                     cuts: $cuts,
                     specs: ($specs + 1),
-                    plan: $p.plan,
+                    plan: ($p.plan // $noplan),
                     spec: $written,
                     findings: $arbiter.findings
                   }

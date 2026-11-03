@@ -1,0 +1,12 @@
+exec-code: true
+fixture:
+  expect: completed
+  reached: [recall, track, rounds, plan, cite, probe, prosecute, round, verdict, keep]
+  inputs: { design: docs/d.md, scope: "u1", survey: "gate tail", carry: "none" }
+  resolved-text-contains:
+    keep: '"verdict":"pass","recalled":false,"findings":[]'
+track: { track: test-free }
+plan:
+  steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+  decisions: []
+prosecute: { verdict: pass, findings: [] }

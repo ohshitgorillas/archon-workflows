@@ -13,3 +13,4 @@ gate: { status: green, tail: ok }
 bail: { pin: ok, findings: [], open: 1, decisions: [{ id: d1, question: q, recommend: r, alternative: a, cost: c }], question: "Decision d1: q. Recommend r; alternative a; cost c." }
 land: ""
 ask: { text: "go with r" }
+planning__track: { track: full }

@@ -30,3 +30,4 @@ review: { verdict: pass, findings: [], fixes_used: 0, next: null, remaining: 0, 
 gate: { status: green, tail: ok }
 bail: { pin: ok, findings: [], open: 0, decisions: [], question: "" }
 land: ""
+planning__track: { track: full }
