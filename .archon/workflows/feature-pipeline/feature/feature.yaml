@@ -3,8 +3,8 @@ description: >-
   Phase 1 of the feature pipeline. Takes a request file in the target repository (the
   run's working directory), runs the plan-review block sequentially (the planner cuts the
   code steps and a prosecutor rules on them; only then the specifier writes the test spec
-  against that Plan and an arbiter rules on it; 3 Plan attempts and 3 Spec attempts at
-  most). A blocking decision stops planning as soon as its author writes it: the owner is
+  against that Plan and an arbiter rules on it; another attempt only while a blocking finding
+  is new). A blocking decision stops planning as soon as its author writes it: the owner is
   asked it at once, and planning resumes from where it stopped with the answer, until it
   is no longer blocked. Then it stops for one approval over the Plan and Spec together; the approval is
   skipped when a recalled Plan and Spec are already approved. Writes nothing to the
