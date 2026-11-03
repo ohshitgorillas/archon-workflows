@@ -104,8 +104,8 @@ nodes:
                   type: object
                   properties:
                     cause: { type: string }
-                    fix: { type: string }
-                  required: [cause, fix]
+                    basis: { type: string, minLength: 1 }
+                  required: [cause, basis]
               fixes_used: { type: integer }
               next: { type: [string, 'null'] }
               remaining: { type: integer }

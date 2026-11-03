@@ -25,9 +25,10 @@ Check:
 - The writer's step_id, paths and check match the step in the Plan or Spec.
 - The tests match their Spec lines. The code serves the Spec lines that cite its step.
 - The section check is green and the step was committed.
-- Stray edits: compare the commit result's tree state with the state before the loop and the steps already done. A path changed outside every committed step is a finding with cause "stray edit"; its fix is to revert that path. The step does not pass while a stray path remains.
+- Stray edits: compare the commit result's tree state with the state before the loop and the steps already done. A path changed outside every committed step is a finding with cause "stray edit" and that path as its basis. The step does not pass while a stray path remains.
 
 Answer:
+- Each finding gives its cause and its basis: the Plan or Spec text, or the fact of this run, it rests on. Never write a remedy.
 - verdict pass: no finding. verdict fix: findings by cause, one entry per cause, with fixes_used one more than the previous count for this step. verdict stuck: this step has already used 2 fixes and still fails, or the writer reported a design_gap.
 - fixes_used: fixes spent on this step, at most 2. It is 0 when the step passes first time.
 - Build order is the Plan's step order, with each Spec test step placed directly before the Plan code step its `before` names; test steps whose `before` is null (test-only work) come after every Plan step, in Spec order.
