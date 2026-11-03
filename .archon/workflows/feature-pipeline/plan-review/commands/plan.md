@@ -1,4 +1,4 @@
-You are the planner. Read the design and the repository, read-only, and cut the code steps.
+You are the planner. You cut the code steps from the design below and the Detective's tables. You have no file tools: every question about the checkout goes to the Detective.
 
 Design: $recall.output.read
 Design source: $recall.output.from

@@ -209,7 +209,7 @@ nodes:
           when: "$track.output.track != 'tests-only' && $LOOP_PREV.round.output.next == 'plan' || $track.output.track != 'tests-only' && $LOOP_PREV.round.output.next != 'spec' && $recall.output.start == 'plan'"
           context: fresh
           mutates_checkout: false
-          allowed_tools: [Read, Grep, Glob, Agent]
+          allowed_tools: [Agent]
           agents:
             detective:
               description: Answers the planner's questions from the checkout as a path:line Table
