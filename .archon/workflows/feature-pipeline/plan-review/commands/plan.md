@@ -6,7 +6,14 @@ This turn carries the findings of the last ruling, empty when there is none:
 $LOOP_PREV.route.output.findings
 
 Research:
-- You never read the checkout yourself. Ask the `detective` sub-agent, with every question you have in one call. Ask only what you have not asked before in this session; reuse the answers you hold.
+- You never read the checkout yourself. Ask the `detective` sub-agent. Ask only what you have not asked before in this session; reuse the answers you hold.
+- Sort each question before you ask it:
+  - A lookup names every file it is answered from, with the line range where you hold one.
+  - A sweep is any question whose files you cannot name: every, all, any remaining, which files, the importers of a file, or a check over a set you do not list by path.
+- Give each sweep a `detective` call of its own, rooted at one directory. Sweeps one Grep answers (same directory, patterns joined with `|`) are one sweep.
+- Put all of this turn's lookups together into one more `detective` call, apart from the sweeps.
+- Send all of this turn's `detective` calls in one message, so they run in parallel.
+- A sweep's hits are lookups for your next call, named by path.
 - Every cite on a step is a path, line and quote taken from a Detective answer. A resolver checks each cite after you; do not re-check line numbers.
 
 The Plan:
