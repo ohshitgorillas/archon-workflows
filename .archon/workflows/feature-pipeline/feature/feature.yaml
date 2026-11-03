@@ -4,7 +4,9 @@ description: >-
   run's working directory), runs the plan-review block sequentially (the planner cuts the
   code steps and a prosecutor rules on them; only then the specifier writes the test spec
   against that Plan and an arbiter rules on it; 4 Plan attempts and 4 Spec attempts at
-  most) and stops for one approval over the Plan and Spec together; the approval is
+  most). A blocking decision stops planning as soon as its author writes it: the owner is
+  asked it at once, and planning resumes from where it stopped with the answer, until it
+  is no longer blocked. Then it stops for one approval over the Plan and Spec together; the approval is
   skipped when a recalled Plan and Spec are already approved. Writes nothing to the
   checkout; the owner's answer is written into the plan record under $STATE_DIR.
   Use on a hammered-out request; not for code changes.
@@ -25,44 +27,75 @@ nodes:
     bash: cat -- "$INPUTS_REQUEST"
     mutates_checkout: false
 
-  - id: planning
-    include: plan-review
+  - id: review
     depends_on: [read-request]
-    with:
-      design: $INPUTS.request
-      scope: The whole request, as one unit.
-      survey: No full-check output; this is a new feature.
-      carry: No prior cycle.
+    loop_group:
+      max_iterations: 4
+      until_bash: |
+        v=$planning.output.verdict
+        [ "$v" != blocked ]
+      nodes:
+        - id: planning
+          include: plan-review
+          with:
+            design: $INPUTS.request
+            scope: The whole request, as one unit.
+            survey: No full-check output; this is a new feature.
+            carry: No prior cycle.
+            resume: $LOOP_PREV.planning__verdict.output.stopped
+            answer: $LOOP_PREV.escalate.output.text
+
+        - id: settled
+          depends_on: [planning]
+          mutates_checkout: false
+          bash: |
+            result=$planning.output
+            printf '%s' "$result"
+
+        - id: escalate
+          depends_on: [settled]
+          when: "$planning.output.verdict == 'blocked'"
+          wait:
+            attention: $planning.output.question
+
+  - id: planned
+    depends_on: [review]
+    mutates_checkout: false
+    bash: |
+      result=$review.output
+      printf '%s' "$result"
+    output_format:
+      type: object
 
   - id: refused
-    depends_on: [planning]
-    when: "$planning.output.verdict == 'refused'"
-    cancel: "The Plan and Spec still fail review at the Plan or Spec cap. Findings: $planning.output.findings"
+    depends_on: [planned]
+    when: "$planned.output.verdict == 'refused'"
+    cancel: "The Plan and Spec still fail review at the Plan or Spec cap. Findings: $planned.output.findings"
 
   - id: gate
-    depends_on: [planning, refused]
+    depends_on: [planned, refused]
     trigger_rule: none_failed_min_one_success
-    when: "$planning.output.approval.state != 'approved'"
+    when: "$planned.output.approval.state != 'approved'"
     wait:
       form: approval
       attention: |
         Approve the Plan and the Spec?
 
         Plan:
-        $planning.output.plan
+        $planned.output.plan
 
         Spec:
-        $planning.output.spec
+        $planned.output.spec
 
         Decisions left open:
-        $planning.output.decisions
+        $planned.output.decisions
 
   - id: approval
     depends_on: [gate]
     mutates_checkout: false
     bash: |
       set -euo pipefail
-      key=$planning.output.key
+      key=$planned.output.key
       decision=$gate.output.decision
       text=$gate.output.text
       file="$STATE_DIR/feature-pipeline/plans/$key.json"
