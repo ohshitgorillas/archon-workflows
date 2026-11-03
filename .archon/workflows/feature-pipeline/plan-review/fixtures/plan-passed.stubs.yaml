@@ -6,7 +6,7 @@ fixture:
   resolved-text-contains:
     keep: '"verdict":"refused","recalled":false,"findings":[]'
 plan:
-  steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+  steps: [{ id: c1, unit: u1, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
   decisions: [{ id: d1, question: q, recommend: r, alternative: a, cost: c }]
 prosecute: { verdict: pass, findings: [] }
 track: { track: full }

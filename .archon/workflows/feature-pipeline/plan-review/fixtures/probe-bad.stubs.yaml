@@ -9,8 +9,8 @@ fixture:
     keep: '"verdict":"refused","recalled":false,"findings":[{"author":"plan","target":"c1","cause":"check `(cd .claude/worktrees/integrate && make check-a)`: cd .claude/worktrees/integrate: /'
 plan:
   steps:
-    - { id: c1, unit: u1, kind: code, paths: [src/a.py], check: "(cd .claude/worktrees/integrate && make check-a)", blocked_by: [] }
-    - { id: c2, unit: u2, kind: merge, paths: [src/a.py], check: "test \"$(git rev-parse --abbrev-ref HEAD)\" = v2", blocked_by: [c1] }
+    - { id: c1, unit: u1, paths: [src/a.py], check: "(cd .claude/worktrees/integrate && make check-a)", blocked_by: [] }
+    - { id: c2, unit: u2, paths: [src/a.py], check: "test \"$(git rev-parse --abbrev-ref HEAD)\" = v2", blocked_by: [c1] }
   decisions: []
 prosecute: { verdict: pass, findings: [] }
 track: { track: full }

@@ -7,6 +7,6 @@ fixture:
     keep: '"verdict":"pass","recalled":false,"findings":[]'
 track: { track: test-free }
 plan:
-  steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+  steps: [{ id: c1, unit: u1, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
   decisions: []
 prosecute: { verdict: pass, findings: [] }

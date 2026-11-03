@@ -15,7 +15,7 @@ fixture:
     prosecute: "/design-ref/feature-pipeline-build-design.md\nDesign source: ref 82a6c278e956ae7e018a079c35c5c9bc6d7667f9: docs/superpowers/specs/feature-pipeline-build-design.md is absent from the run's checkout, so it was copied out of that ref\n\nWhere this run runs. These facts are fixed. Never infer them from where a file does or does not resolve.\n- Land branch: 82a6c278e956ae7e018a079c35c5c9bc6d7667f9\n- Land checkout: /tmp/land\n- Every plan check runs at build from the checkout root below, on the branch below, and from nowhere else.\n- When a land branch is named, `sync` merges it into the branch at the start of every cycle, and `land` fast-forwards the land branch to the branch in the land checkout only after planning's steps are built. No plan step lands onto the land branch, so a step whose check asserts any other branch, or cds into another checkout, cannot pass.\n- When the land branch and land checkout are empty, this run neither syncs nor lands.\n- Checkout root (absolute): /"
     keep: '"design_blob":"c339f11da58bb6957d1eebc9271083ec1cbf3c40"'
 plan:
-  steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+  steps: [{ id: c1, unit: u1, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
   decisions: []
 prosecute: { verdict: fail, findings: [{ author: plan, target: c1, cause: x, basis: y, severity: blocking, design_it_in: false }] }
 track: { track: full }

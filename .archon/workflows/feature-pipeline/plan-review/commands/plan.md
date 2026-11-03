@@ -62,7 +62,6 @@ Rules:
 - Every unit in scope gets at least one step or is listed in landed. A step names one unit.
 - landed: the units in scope whose whole work is a green full gate, then the merge onto the land branch. finish lands only after its gate node runs the full gate green, so such a unit gets no step and no invented path.
 - Steps are in build order. Ids are c1, c2, and so on.
-- kind is code, or merge for a step that resolves a sync conflict listed in the prior cycle.
 - paths: repository-relative, no glob. A step may name test files and test support. Repairing or porting tests needs no code step and no invented production change. Tests of new or changed behaviour belong to the specifier.
 - check: runnable from the checkout root, and it proves the step did its job. It may run the full gate.
 - Cut steps by what the design says needs doing together.

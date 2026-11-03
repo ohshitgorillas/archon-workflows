@@ -29,7 +29,7 @@ recall:
     carry: ["none"]
     verdict: pass
     plan:
-      steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+      steps: [{ id: c1, unit: u1, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
       decisions: []
     spec:
       lines:

@@ -6,7 +6,7 @@ fixture:
   resolved-text-contains:
     keep: '"findings":[{"author":"plan","target":"c1","cause":"x","basis":"y","severity":"minor","design_it_in":false}]'
 plan:
-  steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+  steps: [{ id: c1, unit: u1, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
   landed: [u2]
   decisions: []
 prosecute: { verdict: pass, findings: [{ author: plan, target: c1, cause: x, basis: y, severity: minor, design_it_in: false }] }
