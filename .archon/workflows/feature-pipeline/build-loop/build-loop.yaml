@@ -40,7 +40,7 @@ nodes:
           model: claude-sonnet-5-5
           effort: medium
           context: fresh
-          allowed_tools: [Read, Grep, Glob, Edit, Write]
+          allowed_tools: [Read, Grep, Glob, Edit, Write, Bash]
           output_format:
             type: object
             properties:
