@@ -39,6 +39,18 @@ Starting from the recalled record:
 - In every round, read the record's carry beside the prior cycle above. An owner answer already given there is not asked again.
 - Never look up a record yourself; this is the only one you get.
 
+The stopped round this call resumes (null when it resumes nothing):
+$recall.output.seed
+
+Owner answers to blocking decisions (an empty array when there are none). Each names the decisions it answers and gives the owner's text:
+$recall.output.answers
+
+Resuming and answers:
+- When the Plan above is empty, this is the first round of a resumed call: the Plan is the seed's plan, which the prosecutor approved.
+- When your latest Spec above is empty and the seed's resume field is spec, an earlier call stopped on your Spec's blocking decisions to ask the owner. Start from the seed's spec, and handle the seed's findings whose author is spec as the previous round's are handled. The seed takes over from the recalled record's spec.
+- Design every answer in. Drop each answered decision from decisions, and its id from every test step's blocked_by. Never list an answered decision again.
+- A decision id in any test step's blocked_by stops this round as soon as you return: the review waits and the question goes to the owner. Every other decision goes to the owner only at the end.
+
 Measure before you write:
 - Decide which lines need a behavior measured, by a script or a rendered state.
 - For each, ask the `examiner` sub-agent through the Agent tool for one measurement, with the scratch directory $ARTIFACTS_DIR/.archon/scratch/spec/

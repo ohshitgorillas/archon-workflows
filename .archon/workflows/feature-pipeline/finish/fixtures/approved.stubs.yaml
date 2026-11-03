@@ -22,6 +22,9 @@ planning__verdict:
   recalled: false
   approval: { state: none, text: "" }
   key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+  questions: []
+  question: ""
+  stopped: null
 build__before: ""
 write: { step_id: c1, paths: [src/a.py], check: "make check-a", design_gap: null }
 check: { status: green, tail: ok }

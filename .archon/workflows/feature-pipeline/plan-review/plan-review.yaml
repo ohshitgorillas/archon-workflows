@@ -11,9 +11,13 @@ description: >-
   unresolved and no probe finding stands does the specifier write the test spec against that
   approved Plan, measuring through the Examiner on a throwaway copy, and the arbiter rule on
   the Spec. A blocking arbiter finding against the Plan reopens it; minor findings never
-  route. At most 4 Plan attempts and 4 Spec attempts per call. Returns the Plan and Spec, a
-  verdict of pass or refused, the findings, every decision of the Plan and Spec, whether it
-  was recalled, the owner's
+  route. At most 4 Plan attempts and 4 Spec attempts per call. A blocking decision (one a
+  Plan or Spec step lists in blocked_by) stops the round as soon as its author writes it,
+  before the prosecutor or arbiter runs: the call returns verdict blocked with the question
+  for its caller to ask the owner, and a later call given resume (that call's stopped field) and
+  answer (the owner's reply) starts again from where it stopped with the answer designed in.
+  Returns the Plan and Spec, a verdict of pass, refused or blocked, the findings, every
+  decision of the Plan and Spec, the blocking questions, whether it was recalled, the owner's
   approval and the record key; keep then writes that result to the plan record.
 provider: claude
 model: claude-opus-5-5
@@ -45,6 +49,14 @@ inputs:
   land_checkout:
     default: ""
     description: Checkout holding land_branch; empty when the caller does not land.
+  resume:
+    default: ""
+    description: >-
+      The stopped field of an earlier call that returned verdict blocked; this call starts
+      again from where that call stopped. Empty or null starts as usual.
+  answer:
+    default: ""
+    description: The owner's answer to the blocked call's question; empty when there is none.
 
 returns: verdict
 
@@ -80,10 +92,24 @@ nodes:
       if [ -f "$file" ]; then
         record=$(cat "$file")
       fi
+      resume=$INPUTS_RESUME
+      answer=$INPUTS_ANSWER
+      stopped=null
+      if [ -n "$resume" ] && [ "$resume" != null ]; then
+        if ! printf '%s' "$resume" | jq -e 'type == "object" and .next == "blocked" and (.resume == "plan" or .resume == "spec")' > /dev/null 2>&1; then
+          echo "recall: resume is not the stopped field of a plan-review call that returned verdict blocked" >&2
+          exit 1
+        fi
+        stopped=$resume
+      fi
       jq -cn --arg key "$key" --arg design "$design" --arg design_blob "$blob" --arg scope "$scope" --arg head "$head" \
-        --arg run "$WORKFLOW_ID" --argjson record "$record" \
+        --arg run "$WORKFLOW_ID" --argjson record "$record" --argjson stopped "$stopped" --arg answer "$answer" \
         --arg read "$read" --arg from "$from" --arg root "$root" --arg branch "$branch" '
-        {
+        (if $answer == "" then []
+         else [{decisions: (($stopped // {}).questions // []), text: $answer}] end) as $given
+        | ((($stopped // {}).answers // []) + (($record // {}).answers // []) + $given
+           | reduce .[] as $a ([]; if any(.[]; . == $a) then . else . + [$a] end)) as $answers
+        | {
           key: $key,
           design: $design,
           design_blob: $design_blob,
@@ -93,11 +119,15 @@ nodes:
           from: $from,
           root: $root,
           branch: $branch,
-          next: (if $record != null
+          next: (if $stopped == null
+                    and $record != null
                     and $record.verdict == "pass"
                     and $record.approval.state != "rejected"
                     and $record.run != $run
                  then "reuse" else "rounds" end),
+          start: (if $stopped == null then "plan" else $stopped.resume end),
+          seed: $stopped,
+          answers: $answers,
           record: $record
         }'
     output_format:
@@ -113,8 +143,18 @@ nodes:
         root: { type: string }
         branch: { type: string }
         next: { type: string, enum: [rounds, reuse] }
+        start: { type: string, enum: [plan, spec] }
+        seed: { type: [object, 'null'] }
+        answers:
+          type: array
+          items:
+            type: object
+            properties:
+              decisions: { type: array, items: { type: object } }
+              text: { type: string }
+            required: [decisions, text]
         record: { type: [object, 'null'] }
-      required: [key, design, design_blob, scope, head, read, from, root, branch, next, record]
+      required: [key, design, design_blob, scope, head, read, from, root, branch, next, start, seed, answers, record]
 
   - id: rounds
     depends_on: [recall]
@@ -123,11 +163,11 @@ nodes:
       max_iterations: 8
       until_bash: |
         n=$round.output.next
-        [ "$n" = done ] || [ "$n" = refused ]
+        [ "$n" = done ] || [ "$n" = refused ] || [ "$n" = blocked ]
       nodes:
         - id: plan
           command: plan
-          when: "$LOOP_PREV.round.output.next != 'spec'"
+          when: "$LOOP_PREV.round.output.next == 'plan' || $LOOP_PREV.round.output.next != 'spec' && $recall.output.start == 'plan'"
           context: fresh
           mutates_checkout: false
           allowed_tools: [Read, Grep, Glob, Agent]
@@ -202,7 +242,8 @@ nodes:
         - id: cite
           script: cite
           runtime: uv
-          depends_on: [plan]
+          depends_on: [plan, hold]
+          when: "$hold.output.stop == false"
           mutates_checkout: false
           timeout: 60000
           with:
@@ -227,7 +268,8 @@ nodes:
         - id: probe
           script: probe
           runtime: uv
-          depends_on: [plan]
+          depends_on: [plan, hold]
+          when: "$hold.output.stop == false"
           mutates_checkout: false
           timeout: 60000
           with:
@@ -253,7 +295,8 @@ nodes:
 
         - id: prosecute
           command: prosecute
-          depends_on: [cite, probe]
+          depends_on: [cite, probe, hold]
+          when: "$hold.output.stop == false"
           context: fresh
           mutates_checkout: false
           allowed_tools: [Read, Grep, Glob]
@@ -277,7 +320,7 @@ nodes:
 
         - id: spec
           command: spec
-          when: "$LOOP_PREV.round.output.next == 'spec'"
+          when: "$LOOP_PREV.round.output.next == 'spec' || $LOOP_PREV.round.output.next != 'plan' && $recall.output.start == 'spec'"
           context: fresh
           mutates_checkout: false
           allowed_tools: [Read, Grep, Glob, Agent]
@@ -370,9 +413,42 @@ nodes:
                   required: [id, question, recommend, alternative, cost]
             required: [lines, helpers, steps, decisions]
 
+        - id: hold
+          depends_on: [plan, spec]
+          trigger_rule: all_done
+          mutates_checkout: false
+          bash: |
+            set -euo pipefail
+            plan=$plan.output
+            spec=$spec.output
+            prev=$LOOP_PREV.round.output
+            found=$recall.output
+            [ -n "$plan" ] || plan=null
+            [ -n "$spec" ] || spec=null
+            [ -n "$prev" ] || prev=null
+            jq -nc --argjson planned "$plan" --argjson written "$spec" --argjson last "$prev" --argjson found "$found" '
+              (if $planned != null then "plan"
+               elif $written != null then "spec"
+               else error("hold: neither the planner nor the specifier answered this round") end) as $at
+              | (if $at == "plan" then $planned else (($last // $found.seed // {}).plan // {}) end) as $p
+              | (if $at == "spec" then $written else {} end) as $s
+              | [($p.steps // [])[], ($s.steps // [])[] | .blocked_by[] | select(startswith("d"))] as $ids
+              | ([($p.decisions // [])[], ($s.decisions // [])[]]
+                 | map(select(.id | IN($ids[])))
+                 | unique_by(.id)) as $asked
+              | {at: $at, stop: ($asked | length > 0), questions: $asked}'
+          output_format:
+            type: object
+            properties:
+              at: { type: string, enum: [plan, spec] }
+              stop: { type: boolean }
+              questions: { type: array, items: { type: object } }
+            required: [at, stop, questions]
+
         - id: arbitrate
           command: arbitrate
-          depends_on: [spec]
+          depends_on: [spec, hold]
+          when: "$hold.output.stop == false"
           context: fresh
           mutates_checkout: false
           allowed_tools: [Read, Grep, Glob]
@@ -395,27 +471,42 @@ nodes:
             required: [verdict, findings]
 
         - id: round
-          depends_on: [prosecute, arbitrate]
+          depends_on: [hold, prosecute, arbitrate]
           trigger_rule: all_done
           mutates_checkout: false
           bash: |
+            held=$hold.output
+            plan=$plan.output
             cite=$cite.output
             probe=$probe.output
             prosecute=$prosecute.output
             spec=$spec.output
             arbitrate=$arbitrate.output
             prev=$LOOP_PREV.round.output
+            found=$recall.output
+            [ -n "$plan" ] || plan=null
             [ -n "$cite" ] || cite=null
             [ -n "$probe" ] || probe=null
             [ -n "$prosecute" ] || prosecute=null
             [ -n "$spec" ] || spec=null
             [ -n "$arbitrate" ] || arbitrate=null
             [ -n "$prev" ] || prev=null
-            jq -nc --argjson resolved "$cite" --argjson probed "$probe" --argjson ruling "$prosecute" --argjson written "$spec" --argjson arbiter "$arbitrate" --argjson last "$prev" '
-              ($last // {}) as $p
+            jq -nc --argjson held "$held" --argjson planned "$plan" --argjson resolved "$cite" --argjson probed "$probe" --argjson ruling "$prosecute" --argjson written "$spec" --argjson arbiter "$arbitrate" --argjson last "$prev" --argjson found "$found" '
+              ($last // $found.seed // {}) as $p
               | ($p.cuts // 0) as $cuts
               | ($p.specs // 0) as $specs
-              | if $ruling != null then
+              | if $held.stop then
+                  {
+                    next: "blocked",
+                    cuts: $cuts,
+                    specs: $specs,
+                    plan: (if $held.at == "plan" then $planned else $p.plan end),
+                    spec: (if $held.at == "spec" then $written else ($p.spec // null) end),
+                    findings: ($p.findings // []),
+                    questions: $held.questions,
+                    resume: $held.at
+                  }
+                elif $held.at == "plan" then
                   ($resolved.unresolved | map({
                     author: "plan",
                     target: .step,
@@ -432,7 +523,9 @@ nodes:
                       specs: $specs,
                       plan: $resolved.plan,
                       spec: ($p.spec // null),
-                      findings: ($filed + (($p.findings // []) | map(select(.author == "spec"))))
+                      findings: ($filed + (($p.findings // []) | map(select(.author == "spec")))),
+                      questions: [],
+                      resume: null
                     }
                 else
                   {
@@ -443,20 +536,24 @@ nodes:
                     specs: ($specs + 1),
                     plan: $p.plan,
                     spec: $written,
-                    findings: $arbiter.findings
+                    findings: $arbiter.findings,
+                    questions: [],
+                    resume: null
                   }
                 end
               | if (.next == "plan" and .cuts >= 4) or (.next == "spec" and .specs >= 4) then .next = "refused" else . end'
           output_format:
             type: object
             properties:
-              next: { type: string, enum: [plan, spec, done, refused] }
+              next: { type: string, enum: [plan, spec, done, refused, blocked] }
               cuts: { type: integer }
               specs: { type: integer }
               plan: { type: object }
               spec: { type: [object, 'null'] }
               findings: { type: array, items: { type: object } }
-            required: [next, cuts, specs, plan, spec, findings]
+              questions: { type: array, items: { type: object } }
+              resume: { type: [string, 'null'], enum: [plan, spec, null] }
+            required: [next, cuts, specs, plan, spec, findings, questions, resume]
 
   - id: verdict
     runtime: uv
@@ -484,6 +581,14 @@ nodes:
           return kept
 
 
+      def asked(questions: list) -> str:
+          return "\n".join(
+              "Decision %s: %s Recommend: %s. Alternative: %s. Cost: %s."
+              % (d["id"], d["question"], d["recommend"], d["alternative"], d["cost"])
+              for d in questions
+          )
+
+
       def main() -> int:
           recall = json.loads(os.environ["INPUTS_RECALL"])
           last = json.loads(os.environ["INPUTS_ROUND"])
@@ -498,11 +603,21 @@ nodes:
                   "key": recall["key"],
                   "plan": record["plan"],
                   "spec": record["spec"],
+                  "questions": [],
+                  "question": "",
+                  "stopped": None,
               }
           elif last is not None and recall["next"] == "rounds":
               spec = last["spec"] if last["spec"] is not None else {}
+              blocked = last["next"] == "blocked"
+              if blocked:
+                  verdict = "blocked"
+              elif last["next"] == "done":
+                  verdict = "pass"
+              else:
+                  verdict = "refused"
               result = {
-                  "verdict": "pass" if last["next"] == "done" else "refused",
+                  "verdict": verdict,
                   "recalled": False,
                   "findings": last["findings"],
                   "decisions": gathered(last["plan"], spec),
@@ -510,6 +625,9 @@ nodes:
                   "key": recall["key"],
                   "plan": last["plan"],
                   "spec": spec,
+                  "questions": last["questions"],
+                  "question": asked(last["questions"]),
+                  "stopped": dict(last, answers=recall["answers"]) if blocked else None,
               }
           else:
               print(
@@ -526,11 +644,14 @@ nodes:
     output_format:
       type: object
       properties:
-        verdict: { type: string, enum: [pass, refused] }
+        verdict: { type: string, enum: [pass, refused, blocked] }
         plan: { type: object }
         spec: { type: object }
         findings: { type: array, items: { type: object } }
         decisions: { type: array, items: { type: object } }
+        questions: { type: array, items: { type: object } }
+        question: { type: string }
+        stopped: { type: [object, 'null'] }
         recalled: { type: boolean }
         approval:
           type: object
@@ -539,7 +660,7 @@ nodes:
             text: { type: string }
           required: [state, text]
         key: { type: string }
-      required: [verdict, plan, spec, findings, decisions, recalled, approval, key]
+      required: [verdict, plan, spec, findings, decisions, questions, question, stopped, recalled, approval, key]
 
   - id: keep
     depends_on: [verdict]
@@ -566,6 +687,8 @@ nodes:
           spec: $answer.spec,
           findings: $answer.findings,
           decisions: $answer.decisions,
-          approval: $answer.approval
+          approval: $answer.approval,
+          answers: $found.answers,
+          stopped: $answer.stopped
         }' > "$dir/$key.json.tmp"
       mv "$dir/$key.json.tmp" "$dir/$key.json"

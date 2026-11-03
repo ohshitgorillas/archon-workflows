@@ -19,6 +19,12 @@ $LOOP_PREV.round.output.plan
 Spec:
 $spec.output
 
+When the Plan above is empty, this is the first round of a call resumed after the owner answered a blocking decision, and the Plan is the plan field of this stopped round:
+$recall.output.seed
+
+Owner answers already given (an empty array when there are none). A decision one of them answers is settled: the Spec must not list it again.
+$recall.output.answers
+
 Cross-check, and file a finding for every failure:
 - Every step and before field names a Plan step, or is null for test-only work (no Plan code step changes production behaviour for it). A line with step null is mark GREEN.
 - Every Plan code step whose unit changes behavior has a RED line.

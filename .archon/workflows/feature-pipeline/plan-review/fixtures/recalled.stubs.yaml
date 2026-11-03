@@ -16,6 +16,9 @@ recall:
   root: /tmp/checkout
   branch: feat
   next: reuse
+  start: plan
+  seed: null
+  answers: []
   record:
     key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
     design: docs/d.md

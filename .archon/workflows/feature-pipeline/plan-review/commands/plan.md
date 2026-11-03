@@ -41,6 +41,17 @@ Starting from the recalled record:
 - From round 2 on, the latest Plan and findings above take over from the record's plan and findings.
 - Never look up a record yourself; this is the only one you get.
 
+The stopped round this call resumes (null when it resumes nothing):
+$recall.output.seed
+
+Owner answers to blocking decisions (an empty array when there are none). Each names the decisions it answers and gives the owner's text:
+$recall.output.answers
+
+Resuming and answers:
+- In round 1, when the seed is not null and its resume field is plan, an earlier call stopped on your Plan's blocking decisions to ask the owner. Start from the seed's plan, and handle the seed's findings whose author is plan as the previous round's findings above are handled. The seed takes over from the recalled record's plan and findings.
+- Design every answer in. Drop each answered decision from decisions, and its id from every step's blocked_by. Never list an answered decision again.
+- A decision id in any step's blocked_by stops this round as soon as you return: the review waits and the question goes to the owner. Every other decision goes to the owner only at the end.
+
 Research before you plan:
 - Work out what you need to know from the design, the scope, the survey, the prior cycle and the prior Plan and findings.
 - Ask the `detective` sub-agent through the Agent tool, all your questions in one call. It returns a file:line table.

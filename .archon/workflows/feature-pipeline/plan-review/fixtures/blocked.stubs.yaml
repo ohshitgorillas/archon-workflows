@@ -1,0 +1,11 @@
+exec-code: true
+fixture:
+  expect: completed
+  reached: [recall, rounds, plan, hold, round, verdict, keep]
+  inputs: { design: docs/d.md, scope: "u1", survey: "gate tail", carry: "none" }
+  resolved-text-contains:
+    round: '{"at":"plan","stop":true,"questions":[{"id":"d1","question":"q","recommend":"r","alternative":"a","cost":"c"}]}'
+    keep: '"question":"Decision d1: q Recommend: r. Alternative: a. Cost: c.","stopped":{"next":"blocked"'
+plan:
+  steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [d1] }]
+  decisions: [{ id: d1, question: q, recommend: r, alternative: a, cost: c }]

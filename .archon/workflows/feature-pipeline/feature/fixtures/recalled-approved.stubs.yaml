@@ -17,3 +17,6 @@ planning__verdict:
   recalled: true
   approval: { state: approved, text: "ok" }
   key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+  questions: []
+  question: ""
+  stopped: null

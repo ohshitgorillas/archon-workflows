@@ -17,5 +17,8 @@ planning__verdict:
   recalled: false
   approval: { state: none, text: "" }
   key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+  questions: []
+  question: ""
+  stopped: null
 gate: { decision: reject, text: "wrong scope" }
 approval: ""
