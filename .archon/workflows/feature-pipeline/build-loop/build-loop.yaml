@@ -79,7 +79,7 @@ nodes:
             if [ "$s" = green ]; then
               mapfile -t arr < <(printf "%s" "$paths" | jq -r ".[]")
               git add -- "${arr[@]}"
-              if git commit -q -m "$id" -- "${arr[@]}"; then committed=true; fi
+              if git commit -q -m "$id" -- "${arr[@]}" >&2; then committed=true; fi
             fi
             tree=$(git status --porcelain)
             jq -n --argjson c "$committed" --rawfile t <(printf '%s' "$tree") '{committed: $c, status: $t}'
