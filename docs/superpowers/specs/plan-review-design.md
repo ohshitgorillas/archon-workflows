@@ -86,7 +86,7 @@ Each iteration is either a **plan round** (plan, cite, prosecute) or a **spec ro
         when: "$LOOP_PREV.round.output.next != 'spec'"   # '' on iteration 1, so it runs
         context: fresh
         mutates_checkout: false
-        allowed_tools: [Agent]       # no file tools: the planner reads the checkout only through the Detective
+        allowed_tools: [Read, Grep, Glob, Agent]   # Archon caps the detective's tools at these; the planner itself reads the checkout only through the Detective, by plan.md
         agents:
           detective:
             description: Answers the planner's questions from the checkout as a path:line Table
@@ -311,7 +311,7 @@ These checks replace a fixture for every route that needs a second `rounds` iter
 | State carried between iterations (latest Plan, latest Spec, findings, Plan and Spec attempt counts, next phase) | `round` | `$LOOP_PREV.plan`, `$LOOP_PREV.prosecute`, `$LOOP_PREV.spec` or `$LOOP_PREV.arbitrate` in any command; a `script:` node or artifact file carrying it |
 | Detective role | the `detective` inline agent on `plan` | A Detective on any other node; a Detective that writes or runs anything; a second copy of the Detective prompt; an on-disk `.claude/agents/` detective; Detective rules restated in `plan.md` |
 | Examiner role | the `examiner` inline agent on `spec` | An Examiner on any other node; measuring in the checkout; a second copy of the Examiner prompt; an on-disk `.claude/agents/` examiner; Examiner rules restated in `spec.md` |
-| Research for the Plan | `plan` calling `detective` through the `Agent` tool, as often as it needs | The planner reading, measuring or spiking the checkout itself; a file tool in `plan`'s `allowed_tools`; a separate Detective node for the Plan |
+| Research for the Plan | `plan` calling `detective` through the `Agent` tool, as often as it needs | The planner reading, measuring or spiking the checkout itself; a file tool in `plan`'s `allowed_tools` beyond the Read, Grep and Glob the Detective needs (Archon caps an inline agent's tools at its node's); a separate Detective node for the Plan |
 | Research for the Spec | `spec` calling `examiner` through the `Agent` tool, as often as it needs | A separate Examiner node for the Spec |
 | Citation resolution (a cite's line checked against its quote, and corrected) | `cite`, `plan-review/scripts/cite.py` | Any agent checking, correcting or arguing a line number; the prosecutor ruling on a cite's line; a second resolver or a resolver written into a command; a cite with no `quote` |
 | Throwaway copies | `$ARTIFACTS_DIR/.archon/scratch/`, which Archon removes when the run ends | Any write to the run's checkout during `plan-review` |
