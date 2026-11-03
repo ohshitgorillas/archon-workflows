@@ -1,0 +1,47 @@
+exec-code: true
+fixture:
+  expect: completed
+  inputs: { design: docs/d.md, scope: "12a", full_check: "make check", branch: feat, land_branch: main, land_checkout: /tmp/land }
+  reached: [baseline, cycle, sync, tally, ask]
+  resolved-text-contains:
+    ask: "Decision d1: q Recommend: r. Alternative: a. Cost: c."
+baseline: { status: green, tail: ok }
+sync: ""
+plan:
+  steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [d1] }]
+  decisions: [{ id: d1, question: q, recommend: r, alternative: a, cost: c }]
+prosecute: { verdict: pass, findings: [] }
+planning__verdict:
+  verdict: blocked
+  plan:
+    steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [d1] }]
+    decisions: [{ id: d1, question: q, recommend: r, alternative: a, cost: c }]
+  spec: {}
+  findings: []
+  decisions: [{ id: d1, question: q, recommend: r, alternative: a, cost: c }]
+  recalled: false
+  approval: { state: none, text: "" }
+  key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+  questions: [{ id: d1, question: q, recommend: r, alternative: a, cost: c }]
+  question: "Decision d1: q Recommend: r. Alternative: a. Cost: c."
+  stopped:
+    next: blocked
+    cuts: 1
+    specs: 0
+    plan:
+      steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [d1] }]
+      decisions: [{ id: d1, question: q, recommend: r, alternative: a, cost: c }]
+    spec: null
+    findings: []
+    questions: [{ id: d1, question: q, recommend: r, alternative: a, cost: c }]
+    resume: plan
+    answers: []
+build__before: ""
+write: { step_id: c1, paths: [src/a.py], check: "make check-a", design_gap: null }
+check: { status: green, tail: ok }
+commit: { committed: true, status: "" }
+review: { verdict: pass, findings: [], fixes_used: 0, next: null, remaining: 0, done: [c1], stuck: [], design_gaps: [], stray: [] }
+gate: { status: green, tail: ok }
+bail: { pin: ok, findings: [], open: 0, decisions: [], question: "" }
+land: ""
+ask: { text: "go with r" }

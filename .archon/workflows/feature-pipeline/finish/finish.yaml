@@ -2,7 +2,9 @@ name: finish
 description: >-
   Finishes an approved design in an existing checkout and lands it. Each cycle merges the
   land branch, plans the code and test steps, builds every unblocked step, runs the full
-  gate and checks that committed tests match their spec lines. The owner is asked the open
+  gate and checks that committed tests match their spec lines. A blocking decision stops the
+  cycle before it builds: the owner is asked it at once, and the next cycle resumes planning
+  from where it stopped with the answer. The owner is asked the open
   decisions, a refused plan-review, product questions from design gaps and stuck steps, and
   any cap hit (the build's fix cap, the cycle cap) with what is outstanding. Lands by
   fast-forward only; nothing pushes. Start with
@@ -78,6 +80,8 @@ nodes:
             land_branch: $INPUTS.land_branch
             land_checkout: $INPUTS.land_checkout
             scope: $INPUTS.scope
+            resume: $LOOP_PREV.planning__verdict.output.stopped
+            answer: $LOOP_PREV.ask.output.text
             survey: |
               Full-check tail of the previous cycle (empty on the first cycle): $LOOP_PREV.gate.output
               Baseline full-check tail: $baseline.output
@@ -85,7 +89,6 @@ nodes:
               Previous plan-review result (plan, spec, findings, verdict): $LOOP_PREV.planning.output
               Previous build result (remaining, stuck, design gaps, stray edits): $LOOP_PREV.tally.output.build
               Previous pin check: $LOOP_PREV.bail.output
-              Owner answer: $LOOP_PREV.ask.output
               Conflicted paths from the sync just run: $sync.output
 
         - id: build
@@ -99,6 +102,7 @@ nodes:
         - id: gate
           depends_on: [build]
           trigger_rule: all_done
+          when: "$planning.output.verdict != 'blocked'"
           bash: |
             cmd="$INPUTS_FULL_CHECK"
             out=$(bash -c "$cmd" 2>&1)
@@ -116,6 +120,7 @@ nodes:
         - id: bail
           command: bail
           depends_on: [gate]
+          when: "$planning.output.verdict != 'blocked'"
           context: fresh
           mutates_checkout: false
           allowed_tools: [Read, Grep, Glob, 'Bash(git log:*)', 'Bash(git diff:*)', 'Bash(git show:*)']
@@ -149,12 +154,13 @@ nodes:
           timeout: 60000
           with:
             verdict: $planning.output.verdict
-            gate: $gate.output.status
-            pin: $bail.output.pin
-            open: $bail.output.open
-            question: $bail.output.question
-            pins: $bail.output.findings
-            tail: $gate.output.tail
+            blocking: $planning.output.question
+            gate: { from: $gate.output.status, if_skipped: skipped }
+            pin: { from: $bail.output.pin, if_skipped: skipped }
+            open: { from: $bail.output.open, if_skipped: 0 }
+            question: { from: $bail.output.question, if_skipped: "" }
+            pins: { from: $bail.output.findings, if_skipped: [] }
+            tail: { from: $gate.output.tail, if_skipped: "" }
             build: { from: $build.output, if_skipped: null }
             prior: $LOOP_PREV.tally.output.cycle
           script: |
@@ -168,6 +174,7 @@ nodes:
             gate = os.environ["INPUTS_GATE"]
             pin = os.environ["INPUTS_PIN"]
             opened = json.loads(os.environ["INPUTS_OPEN"])
+            blocking = os.environ["INPUTS_BLOCKING"]
             question = os.environ["INPUTS_QUESTION"]
             pins = json.loads(os.environ["INPUTS_PINS"])
             tail = os.environ["INPUTS_TAIL"]
@@ -196,8 +203,10 @@ nodes:
                 )
             if not done and cycle >= CYCLES:
                 outstanding = []
-                if verdict != "pass":
+                if verdict == "refused":
                     outstanding.append("plan-review refused the Plan and Spec at its caps")
+                if verdict == "blocked":
+                    outstanding.append("plan-review stopped on the blocking decisions asked above")
                 if build is not None and build["remaining"] > 0:
                     outstanding.append("%d buildable steps not yet built" % build["remaining"])
                 if gate != "green":
@@ -211,7 +220,7 @@ nodes:
                     "Answer to run one more cycle with your answer carried into it."
                     % (cycle, CYCLES, "; ".join(outstanding) or "none named")
                 )
-            text = "\n\n".join(part for part in [question] + limits if part)
+            text = "\n\n".join(part for part in [blocking, question] + limits if part)
             print(
                 json.dumps(
                     {"done": done, "build": build, "cycle": cycle, "ask": bool(text), "question": text},
