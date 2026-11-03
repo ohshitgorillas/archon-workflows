@@ -25,14 +25,18 @@ $INPUTS.carry
 The latest Plan in this call (empty in round 1):
 $LOOP_PREV.round.output.plan
 
-Findings from the previous round (empty in round 1). Fix every one whose author is plan. Ignore those whose author is spec:
+Findings from the previous round (empty in round 1). Ignore those whose author is spec. Handle those whose author is plan this way:
+- A finding with a fix comes from a check the workflow ran itself. Apply its fix.
+- A finding with a basis comes from the prosecutor. Change the Plan so its cause no longer holds, in the way you judge best.
+- A finding never widens what the design and scope ask for. A finding whose basis does not show its cause, or that contradicts the facts above, is not binding: leave that point of the Plan as it is.
+- When a finding quotes two texts that pull different ways and the design leaves the choice open, list it as a decision.
 $LOOP_PREV.round.output.findings
 
 The recalled record of an earlier planning call on this same design, scope and commit (null when there is none):
 $recall.output.record
 
 Starting from the recalled record:
-- In round 1, when the record is not null, start from its plan instead of from nothing: revise it, fixing every one of its findings whose author is plan. When its approval state is rejected, the approval text is one more finding whose author is plan.
+- In round 1, when the record is not null, start from its plan instead of from nothing: revise it, handling each of its findings whose author is plan as the previous round's findings above are handled. When its approval state is rejected, the approval text is one more finding whose author is plan.
 - In every round, read the record's carry beside the prior cycle above. An owner answer already given there is not asked again.
 - From round 2 on, the latest Plan and findings above take over from the record's plan and findings.
 - Never look up a record yourself; this is the only one you get.
