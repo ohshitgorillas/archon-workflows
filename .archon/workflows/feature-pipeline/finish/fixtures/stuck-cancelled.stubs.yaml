@@ -8,9 +8,11 @@ fixture:
 baseline: { status: green, tail: ok }
 sync: { conflicted: false, paths: "" }
 plan:
-  steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
-  decisions: []
-prosecute: { verdict: pass, findings: [] }
+  plan:
+    steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+    decisions: []
+  question: ""
+prosecute: { verdict: pass, findings: [], question: "" }
 planning__verdict:
   verdict: pass
   plan:
@@ -33,3 +35,4 @@ review: { verdict: stuck, findings: [{ cause: "check red", basis: "test_a assert
 gate: { status: green, tail: ok }
 bail: { pin: ok, findings: [], open: 0, decisions: [], question: "" }
 planning__track: { track: full }
+planning__brief: { ok: true }

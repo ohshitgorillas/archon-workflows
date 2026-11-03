@@ -4,13 +4,15 @@ fixture:
   inputs: { design: docs/d.md, scope: "12a", full_check: "make check", branch: feat, land_branch: main, land_checkout: /tmp/land }
   reached: [baseline, cycle, sync, gate, bail, tally, land]
   resolved-text-contains:
-    prosecute: "- Land branch: main\n- Land checkout: /tmp/land\n"
+    planning__brief: "Branch the caller lands on, empty when it does not land: main\nCheckout holding that branch, empty when it does not land: /tmp/land\n"
 baseline: { status: green, tail: ok }
 sync: { conflicted: false, paths: "" }
 plan:
-  steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
-  decisions: []
-prosecute: { verdict: pass, findings: [] }
+  plan:
+    steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+    decisions: []
+  question: ""
+prosecute: { verdict: pass, findings: [], question: "" }
 planning__verdict:
   verdict: pass
   plan:
@@ -34,3 +36,4 @@ gate: { status: red, tail: "ruff: Found 44 errors." }
 bail: { pin: ok, findings: [], open: 0, decisions: [], question: "" }
 land: ""
 planning__track: { track: full }
+planning__brief: { ok: true }

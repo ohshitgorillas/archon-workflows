@@ -9,9 +9,11 @@ fixture:
 baseline: { status: green, tail: ok }
 sync: { conflicted: false, paths: "" }
 plan:
-  steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
-  decisions: []
-prosecute: { verdict: pass, findings: [] }
+  plan:
+    steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+    decisions: []
+  question: ""
+prosecute: { verdict: pass, findings: [], question: "" }
 planning__verdict:
   verdict: pass
   plan:
@@ -35,3 +37,4 @@ gate: { status: green, tail: ok }
 bail: { pin: ok, findings: [], open: 1, decisions: [{ id: gap-c1, question: "should an expired token log the user out or refresh silently?", recommend: "refresh silently", alternative: "log out", cost: "refresh adds one call per expiry; log out costs the user a sign-in." }], question: "Decision gap-c1: should an expired token log the user out or refresh silently? Recommend: refresh silently. Alternative: log out. Cost: refresh adds one call per expiry; log out costs the user a sign-in." }
 ask: { text: "refresh silently" }
 planning__track: { track: full }
+planning__brief: { ok: true }

@@ -5,12 +5,15 @@ fixture:
   inputs: { request: docs/requests/x.md }
   resolved-text-contains:
     gate: "Plan:\n{\"steps\":[{\"id\":\"c1\",\"unit\":\"request\",\"kind\":\"code\",\"paths\":[\"src/a.py\"],\"check\":\"make check-a\",\"blocked_by\":[]}],\"decisions\":[]}\n\nSpec:\n{\"lines\":[{\"id\":\"t42\",\"step\":\"c1\""
-    prosecute: "Design source: neither the run's checkout nor a ref: read it as given\n\nWhere this run runs. These facts are fixed. Never infer them from where a file does or does not resolve.\n- Land branch: \n- Land checkout: \n"
+    planning__track: "Design source: neither the run's checkout nor a ref: read it as given\n"
+    planning__brief: "Branch the caller lands on, empty when it does not land: \nCheckout holding that branch, empty when it does not land: \n"
 read-request: "request text"
 plan:
-  steps: [{ id: c1, unit: request, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
-  decisions: []
-prosecute: { verdict: pass, findings: [] }
+  plan:
+    steps: [{ id: c1, unit: request, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+    decisions: []
+  question: ""
+prosecute: { verdict: pass, findings: [], question: "" }
 planning__verdict: &verdict
   verdict: pass
   plan: { steps: [{ id: c1, unit: request, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }], decisions: [] }
@@ -30,3 +33,4 @@ planning__verdict: &verdict
 gate: { decision: approve, text: "" }
 approval: ""
 planning__track: { track: full }
+planning__brief: { ok: true }

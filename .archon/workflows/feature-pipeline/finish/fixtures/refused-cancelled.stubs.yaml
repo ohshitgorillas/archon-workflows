@@ -8,7 +8,10 @@ fixture:
 baseline: { status: green, tail: ok }
 sync: { conflicted: false, paths: "" }
 plan:
-  steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
-  decisions: []
-prosecute: { verdict: fail, findings: [{ author: plan, target: c1, field: check, cause: x, basis: y, severity: blocking, design_it_in: false }] }
+  plan:
+    steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+    decisions: []
+  question: ""
+prosecute: { verdict: refused, findings: [{ author: plan, target: c1, field: check, cause: x, severity: blocking }], question: "" }
 planning__track: { track: full }
+planning__brief: { ok: true }

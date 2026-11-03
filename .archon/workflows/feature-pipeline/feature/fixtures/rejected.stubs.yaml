@@ -7,9 +7,11 @@ fixture:
     gate: "Plan:\n{\"steps\":[{\"id\":\"c1\",\"unit\":\"request\",\"kind\":\"code\",\"paths\":[\"src/a.py\"],\"check\":\"make check-a\",\"blocked_by\":[]}],\"decisions\":[]}\n\nSpec:\n{\"lines\":[{\"id\":\"t42\",\"step\":\"c1\""
 read-request: "request text"
 plan:
-  steps: [{ id: c1, unit: request, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
-  decisions: []
-prosecute: { verdict: pass, findings: [] }
+  plan:
+    steps: [{ id: c1, unit: request, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+    decisions: []
+  question: ""
+prosecute: { verdict: pass, findings: [], question: "" }
 planning__verdict: &verdict
   verdict: pass
   plan: { steps: [{ id: c1, unit: request, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }], decisions: [] }
@@ -29,3 +31,4 @@ planning__verdict: &verdict
 gate: { decision: reject, text: "wrong scope" }
 approval: ""
 planning__track: { track: full }
+planning__brief: { ok: true }

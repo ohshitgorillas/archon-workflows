@@ -7,7 +7,10 @@ fixture:
     refused: '"author":"plan"'
 read-request: "request text"
 plan:
-  steps: [{ id: c1, unit: request, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
-  decisions: []
-prosecute: { verdict: fail, findings: [{ author: plan, target: c1, field: check, cause: x, basis: y, severity: blocking, design_it_in: false }] }
+  plan:
+    steps: [{ id: c1, unit: request, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+    decisions: []
+  question: ""
+prosecute: { verdict: refused, findings: [{ author: plan, target: c1, field: check, cause: x, severity: blocking }], question: "" }
 planning__track: { track: full }
+planning__brief: { ok: true }

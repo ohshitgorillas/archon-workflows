@@ -4,11 +4,15 @@ fixture:
   reached: [read-request, planning__verdict, settled, planned, escalate, limit]
   inputs: { request: docs/requests/x.md }
   resolved-text-contains:
-    escalate: "Decision d1: q Recommend: r. Alternative: a. Cost: c."
-    limit: "Planning is still blocked after 4 passes, the cap on blocking decisions in a run. Still open: Decision d1: q Recommend: r. Alternative: a. Cost: c."
+    escalate: "Keep the old API or drop it?"
+    limit: "Planning is still blocked after 4 passes, the cap on blocking decisions in a run. Still open: Keep the old API or drop it?"
 read-request: "request text"
 plan:
-  steps: [{ id: c1, unit: request, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [d1] }]
-  decisions: [{ id: d1, question: q, recommend: r, alternative: a, cost: c }]
-escalate: { text: "go with r" }
+  plan:
+    steps: [{ id: c1, unit: request, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+    decisions: []
+  question: "Keep the old API or drop it? Keeping costs one shim step; dropping breaks callers."
+escalate: { text: "keep it" }
+prosecute: { verdict: blocked, findings: [], question: "Keep the old API or drop it?" }
 planning__track: { track: full }
+planning__brief: { ok: true }

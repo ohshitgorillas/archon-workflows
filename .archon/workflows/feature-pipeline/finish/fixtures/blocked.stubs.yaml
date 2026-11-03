@@ -4,14 +4,16 @@ fixture:
   inputs: { design: docs/d.md, scope: "12a", full_check: "make check", branch: feat, land_branch: main, land_checkout: /tmp/land }
   reached: [baseline, cycle, sync, planning__verdict, tally, ask, cycled, limit]
   resolved-text-contains:
-    ask: "Decision d1: q Recommend: r. Alternative: a. Cost: c."
-    limit: "finish stopped at its cap of 4 cycles without landing. Still open: the blocking decisions plan-review asked: Decision d1: q Recommend: r. Alternative: a. Cost: c."
+    ask: "Keep the old API or drop it?"
+    limit: "finish stopped at its cap of 4 cycles without landing. Still open: the blocking decisions plan-review asked: Keep the old API or drop it?"
 baseline: { status: green, tail: ok }
 sync: { conflicted: false, paths: "" }
 plan:
-  steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [d1] }]
-  decisions: [{ id: d1, question: q, recommend: r, alternative: a, cost: c }]
-prosecute: { verdict: pass, findings: [] }
+  plan:
+    steps: [{ id: c1, unit: u1, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+    decisions: []
+  question: "Keep the old API or drop it? Keeping costs one shim step; dropping breaks callers."
+prosecute: { verdict: blocked, findings: [], question: "Keep the old API or drop it?" }
 build__before: ""
 write: { step_id: c1, paths: [src/a.py], check: "make check-a", design_gap: null }
 check: { status: green, tail: ok }
@@ -19,5 +21,6 @@ commit: { committed: true, status: "" }
 review: { verdict: pass, findings: [], fixes_used: 0, next: null, remaining: 0, done: [c1], stuck: [], design_gaps: [], stray: [] }
 gate: { status: green, tail: ok }
 bail: { pin: ok, findings: [], open: 0, decisions: [], question: "" }
-ask: { text: "go with r" }
+ask: { text: "keep it" }
 planning__track: { track: full }
+planning__brief: { ok: true }
