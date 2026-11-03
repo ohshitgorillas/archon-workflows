@@ -1,7 +1,7 @@
 exec-code: true
 fixture:
   expect: completed
-  reached: [recall, track, rounds, plan, cite, probe, prosecute, round, verdict, keep]
+  reached: [recall, track, rounds, plan, cite, probe, prosecute, round, spec, arbitrate, verdict, keep]
   inputs: { design: docs/d.md, scope: "u1", survey: "gate tail", carry: "none" }
   resolved-text-contains:
     prosecute: '"line":3,"quote":"gamma line three"'
@@ -21,4 +21,11 @@ plan:
         - { path: .archon/workflows/feature-pipeline/plan-review/fixtures/cites.txt, line: 2, quote: "omega line none" }
   decisions: []
 prosecute: { verdict: pass, findings: [] }
+spec:
+  lines:
+    - { id: t1, step: c1, claim: a works, mark: RED, preserves: null, file: tests/test_a.py, shared: [], setup: none, assertion: a returns 1 }
+  helpers: []
+  steps: [{ id: w1, before: c1, lines: [t1], paths: [tests/test_a.py], check: "make test-a", blocked_by: [] }]
+  decisions: []
+arbitrate: { verdict: pass, findings: [] }
 track: { track: full }

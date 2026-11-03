@@ -58,15 +58,14 @@ Research before you plan:
 - Ask it again whenever more needs answering. Build the Plan from its tables.
 
 Rules:
-- Each step's cites carries, unchanged, every Detective cite the step relies on. Never edit a cite's path, line or quote, and never write a cite the Detective did not return. A step that relies on no cite omits cites.
+- cites is optional: copy a Detective cite when it helps the builder. A cite that does not resolve is a minor finding, never a failed round.
 - Every unit in scope gets at least one step or is listed in landed. A step names one unit.
 - landed: the units in scope whose whole work is a green full gate, then the merge onto the land branch. finish lands only after its gate node runs the full gate green, so such a unit gets no step and no invented path.
 - Steps are in build order. Ids are c1, c2, and so on.
 - kind is code, or merge for a step that resolves a sync conflict listed in the prior cycle.
-- paths: repository-relative, no glob. No test file or test support (helpers, fixtures, conftest), except in a step that repairs or ports existing tests or support and changes no production behaviour. Tests of new or changed behaviour belong to the specifier.
-- check: the step's own section check, runnable from the checkout root. It tests that step's section only, never the full gate; the full gate runs in finish's gate node.
-- Cut each step by what the design says needs doing together. Never cut by file count or by file total.
-- blocked_by lists only decision ids and ids of earlier steps. A decision id: the step waits on an owner answer. A step id: that step's check must pass first. Otherwise blocked_by is empty.
-- A decision that has one sensible answer is not a decision: design it in. List a decision when the design leaves a real choice open, when the choice is the owner's alone (scope, preference, cost the design does not settle), or when design text and a rule in these instructions conflict: quote both, whether or not the design leaves the choice open. Give the question, your recommendation, the alternative and the cost of each in plain English.
-- Cite no test id. The Plan never cites the Spec.
+- paths: repository-relative, no glob. A step may name test files and test support. Repairing or porting tests needs no code step and no invented production change. Tests of new or changed behaviour belong to the specifier.
+- check: runnable from the checkout root, and it proves the step did its job. It may run the full gate.
+- Cut steps by what the design says needs doing together.
+- blocked_by lists decision ids and step ids. A decision id: the step waits on the owner's answer. A step id: the step waits until that step's check passes. No step waits on itself, directly or through other steps.
+- A decision that has one sensible answer is not a decision: design it in. List a decision when the design leaves a real choice open, when the choice is the owner's alone (scope, preference, cost the design does not settle), or when design text and a rule in these instructions conflict: quote both, and put its id in blocked_by of every step it touches, so the owner hears at once. Give the question, your recommendation, the alternative and the cost of each in plain English.
 - Plan only what the design and scope ask for.

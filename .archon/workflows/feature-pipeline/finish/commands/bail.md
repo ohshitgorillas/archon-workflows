@@ -13,11 +13,11 @@ $gate.output
 
 Do two things.
 
-1. PIN check. Compare the tests committed this cycle with their Spec lines (file, shared, setup, assertion). A test changed, loosened or removed without a Spec line that says so is pin: broken, with one finding per test. A port line (preserves set, mark GREEN) whose setup and assertion are null pins the preserved test: compare the committed test with the preserved test it names (an existing test id or a whole existing test file); a setup or assertion that differs from the preserved test is pin: broken. If the plan-review result is refused or nothing was built, pin is ok.
+1. PIN check. Compare the tests committed this cycle with the Plan, the Spec and the design. pin is broken only when a test was removed or an assertion weakened and no Spec line, Plan step or design text calls for it, with one finding per test. A test moved, ported, renamed or repaired with its assertions kept is not broken; a port line that names a whole file or directory covers every test in it. If the plan-review result is refused or nothing was built, pin is ok.
 
 2. Gather the open decisions:
 - every decision in the plan-review result's decisions, pass or refused;
-- when the plan-review verdict is refused, one decision with id `refused`: a plain-English question saying planning spent its caps (4 Plan attempts and 4 Spec attempts) without passing review, the blocking findings it could not clear, any conflict between the design text and a rule the planner or specifier follows, quoting both, a recommendation and the alternative, with the cost of each;
+- when the plan-review verdict is refused, one decision with id `refused`: a plain-English question saying planning spent its caps (3 Plan attempts and 3 Spec attempts) without passing review, the blocking findings it could not clear, any conflict between the design text and a rule the planner or specifier follows, quoting both, a recommendation and the alternative, with the cost of each;
 - for each design gap or stuck step in the build result that needs a product answer, one decision with id `gap-<step id>` or `stuck-<step id>` asking that question.
 open is their count. decisions lists them.
 

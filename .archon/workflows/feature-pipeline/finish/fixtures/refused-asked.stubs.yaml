@@ -14,6 +14,6 @@ plan:
   decisions: []
 prosecute: { verdict: fail, findings: [{ author: plan, target: c1, cause: x, basis: y, severity: blocking, design_it_in: false }] }
 gate: { status: green, tail: ok }
-bail: { pin: ok, findings: [], open: 1, decisions: [{ id: refused, question: "Planning spent its caps; c1 still fails x.", recommend: r, alternative: a, cost: c }], question: "Decision refused: planning spent its caps (4 Plan attempts, 4 Spec attempts); finding on c1: x. Recommend r; alternative a; cost c." }
+bail: { pin: ok, findings: [], open: 1, decisions: [{ id: refused, question: "Planning spent its caps; c1 still fails x.", recommend: r, alternative: a, cost: c }], question: "Decision refused: planning spent its caps (3 Plan attempts, 3 Spec attempts); finding on c1: x. Recommend r; alternative a; cost c." }
 ask: { text: "go with r" }
 planning__track: { track: full }

@@ -5,13 +5,14 @@ description: >-
   another run wrote, that passed review and that the owner has not rejected, is reused as
   it stands, and no round or agent runs. Otherwise, strictly in order and starting from the
   recalled record when there is one: the planner cuts the code steps from the Detective's
-  file:line answers, a citation resolver checks and corrects every cite, a check probe reads
+  file:line answers, a citation resolver checks and corrects any cite, a check probe reads
   every step's check against the run's checkout root and branch without running it, and the
-  prosecutor rules on the Plan; only when no prosecutor finding is blocking and no cite is
-  unresolved and no probe finding stands does the specifier write the test spec against that
+  prosecutor rules on the Plan; only when no prosecutor finding is blocking and no
+  probe finding stands does the specifier write the test spec against that
   approved Plan, measuring through the Examiner on a throwaway copy, and the arbiter rule on
   the Spec. A blocking arbiter finding against the Plan reopens it; minor findings never
-  route. At most 4 Plan attempts and 4 Spec attempts per call. A blocking decision (one a
+  route. At most 3 Plan attempts and 3 Spec attempts per call; past that the
+  call returns refused and finish asks the owner. A blocking decision (one a
   Plan or Spec step lists in blocked_by) stops the round as soon as its author writes it,
   before the prosecutor or arbiter runs: the call returns verdict blocked with the question
   for its caller to ask the owner, and a later call given resume (that call's stopped field) and
@@ -173,7 +174,7 @@ nodes:
     depends_on: [recall, track]
     when: "$recall.output.next == 'rounds'"
     loop_group:
-      max_iterations: 8
+      max_iterations: 6
       until_bash: |
         n=$round.output.next
         [ "$n" = done ] || [ "$n" = refused ] || [ "$n" = blocked ]
@@ -300,7 +301,7 @@ nodes:
                     target: { type: string }
                     cause: { type: string }
                     basis: { type: string, minLength: 1 }
-                    severity: { type: string, enum: [blocking] }
+                    severity: { type: string, enum: [minor] }
                     design_it_in: { type: boolean }
                   required: [author, target, cause, basis, severity, design_it_in]
             required: [findings]
@@ -527,7 +528,7 @@ nodes:
                     target: .step,
                     cause: "\(.path):\(.line): \(.reason)",
                     basis: "the cite quotes `\(.quote)`, and no single line of \(.path) is that text",
-                    severity: "blocking",
+                    severity: "minor",
                     design_it_in: false
                   })) as $uncited
                   | (($probed // {}).findings // []) as $checks
@@ -553,12 +554,12 @@ nodes:
                     specs: ($specs + 1),
                     plan: ($p.plan // $noplan),
                     spec: $written,
-                    findings: $arbiter.findings,
+                    findings: ($arbiter.findings + (($p.findings // []) | map(select(.author == "plan" and .severity == "minor")))),
                     questions: [],
                     resume: null
                   }
                 end
-              | if (.next == "plan" and .cuts >= 4) or (.next == "spec" and .specs >= 4) then .next = "refused" else . end'
+              | if (.next == "plan" and .cuts >= 3) or (.next == "spec" and .specs >= 3) then .next = "refused" else . end'
           output_format:
             type: object
             properties:
