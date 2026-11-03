@@ -1,0 +1,12 @@
+exec-code: true
+fixture:
+  expect: completed
+  reached: [before, steps, write, check, commit, review, result]
+  inputs:
+    plan: '{"steps":[{"id":"c1","unit":"u1","kind":"code","paths":["src/a.py"],"check":"make check-a","blocked_by":[]}],"decisions":[]}'
+    spec: '{"lines":[],"helpers":[],"steps":[],"decisions":[]}'
+before: ""
+check: { status: green, tail: ok }
+commit: { committed: true, status: "" }
+write: { step_id: c1, paths: [src/a.py], check: "make check-a", design_gap: "line t1 has no assertion" }
+review: { verdict: stuck, findings: [{ cause: "design gap", basis: "design gap" }], fixes_used: 0, fixed: [], next: null, remaining: 0, done: [], stuck: [c1], design_gaps: ["line t1 has no assertion"], stray: [] }

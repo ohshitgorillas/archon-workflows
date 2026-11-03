@@ -4,7 +4,9 @@ description: >-
   test steps and code steps alike, in the build order of the Plan and Spec (test-only steps
   last; a step waits on the decisions and earlier steps its blocked_by names): a writer, the
   step's own section check, a commit of the step's paths, then a review. Fixes go by cause,
-  at most 2 per step; past that the step is stuck and leaves the loop. Returns the last
+  never by a counter: a finding not yet given a fix gets one; a design_gap, or a finding an
+  earlier fix on this step already addressed with the same cause and basis, makes the step
+  stuck at once and leaves the loop. Returns the last
   review.
 provider: claude
 model: claude-opus-5-5
@@ -28,7 +30,7 @@ nodes:
   - id: steps
     depends_on: [before]
     loop_group:
-      max_iterations: 120
+      max_iterations: 200
       until_bash: |
         r=$review.output.remaining
         [ "$r" = 0 ]
@@ -107,6 +109,14 @@ nodes:
                     basis: { type: string, minLength: 1 }
                   required: [cause, basis]
               fixes_used: { type: integer }
+              fixed:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    cause: { type: string }
+                    basis: { type: string }
+                  required: [cause, basis]
               next: { type: [string, 'null'] }
               remaining: { type: integer }
               done:

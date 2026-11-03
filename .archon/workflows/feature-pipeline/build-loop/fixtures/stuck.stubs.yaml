@@ -4,9 +4,9 @@ fixture:
   reached: [before, steps, write, check, commit, review, result]
   inputs:
     plan: '{"steps":[{"id":"c1","unit":"u1","kind":"code","paths":["src/a.py"],"check":"make check-a","blocked_by":[]}],"decisions":[]}'
-    spec: '{"lines":[],"helpers":[],"steps":[],"decisions":[]}'
+    spec: '{"lines":[{"id":"l1","step":"c1","text":"a() returns 1"}],"helpers":[],"steps":[],"decisions":[]}'
 before: ""
 check: { status: green, tail: ok }
 commit: { committed: true, status: "" }
-write: { step_id: c1, paths: [src/a.py], check: "make check-a", design_gap: "line t1 has no assertion" }
-review: { verdict: stuck, findings: [{ cause: "design gap", basis: "design gap" }], fixes_used: 0, next: null, remaining: 0, done: [], stuck: [c1], design_gaps: ["line t1 has no assertion"], stray: [] }
+write: { step_id: c1, paths: [src/a.py], check: "make check-a", design_gap: null }
+review: { verdict: stuck, findings: [{ cause: "a() returns 0", basis: "line l1: a() returns 1" }], fixes_used: 1, fixed: [], next: null, remaining: 0, done: [], stuck: [c1], design_gaps: [], stray: [] }
