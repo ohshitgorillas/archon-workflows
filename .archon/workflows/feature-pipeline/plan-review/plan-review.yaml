@@ -12,7 +12,7 @@ description: >-
   approved Plan, measuring through the Examiner on a throwaway copy, and the arbiter rule on
   the Spec. A blocking arbiter finding against the Plan reopens it; minor findings never
   route. At most 3 Plan attempts and 3 Spec attempts per call; past that the
-  call returns refused and finish asks the owner. A blocking decision (one a
+  call returns refused and finish cancels with the blocking findings. A blocking decision (one a
   Plan or Spec step lists in blocked_by) stops the round as soon as its author writes it,
   before the prosecutor or arbiter runs: the call returns verdict blocked with the question
   for its caller to ask the owner, and a later call given resume (that call's stopped field) and
