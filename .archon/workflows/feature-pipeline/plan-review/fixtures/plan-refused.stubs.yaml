@@ -1,0 +1,18 @@
+exec-code: true
+fixture:
+  expect: completed
+  reached: [recall, track, brief, rounds, plan, cite, prosecute, route, verdict, keep]
+  inputs: { design: docs/d.md, scope: "u1", survey: "gate tail", carry: "none" }
+  resolved-text-contains:
+    keep: '"verdict":"refused","recalled":false,"findings":[{"author":"plan","target":"c1","field":"paths","cause":"src/a.py is not the file the design changes.","severity":"blocking"}]'
+track: { track: full }
+brief: { ok: true }
+plan:
+  plan:
+    steps: [{ id: c1, unit: u1, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+    decisions: [{ id: d1, question: q, recommend: r, alternative: a, cost: c }]
+  question: ""
+prosecute:
+  verdict: refused
+  findings: [{ author: plan, target: c1, field: paths, cause: "src/a.py is not the file the design changes.", severity: blocking }]
+  question: ""

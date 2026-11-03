@@ -1,0 +1,15 @@
+exec-code: true
+fixture:
+  expect: completed
+  reached: [recall, track, brief, rounds, plan, cite, prosecute, route, verdict, keep]
+  inputs: { design: docs/d.md, scope: "u1", survey: "gate tail", carry: "none" }
+  resolved-text-contains:
+    keep: '"question":"Keep the old API or drop it?","stopped":{"next":"blocked","resume":"plan"'
+track: { track: full }
+brief: { ok: true }
+plan:
+  plan:
+    steps: [{ id: c1, unit: u1, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+    decisions: []
+  question: "Keep the old API or drop it? Keeping costs one shim step; dropping breaks callers."
+prosecute: { verdict: blocked, findings: [], question: "Keep the old API or drop it?" }

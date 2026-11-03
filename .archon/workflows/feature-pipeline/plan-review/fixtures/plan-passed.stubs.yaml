@@ -1,12 +1,15 @@
 exec-code: true
 fixture:
   expect: completed
-  reached: [recall, track, rounds, plan, cite, probe, prosecute, round, verdict, keep]
+  reached: [recall, track, brief, rounds, plan, cite, prosecute, route, verdict, keep]
   inputs: { design: docs/d.md, scope: "u1", survey: "gate tail", carry: "none" }
   resolved-text-contains:
-    keep: '"verdict":"refused","recalled":false,"findings":[]'
-plan:
-  steps: [{ id: c1, unit: u1, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
-  decisions: [{ id: d1, question: q, recommend: r, alternative: a, cost: c }]
-prosecute: { verdict: pass, findings: [] }
+    keep: '"verdict":"refused","recalled":false,"findings":[],"decisions":[{"id":"d1"'
 track: { track: full }
+brief: { ok: true }
+plan:
+  plan:
+    steps: [{ id: c1, unit: u1, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
+    decisions: [{ id: d1, question: q, recommend: r, alternative: a, cost: c }]
+  question: ""
+prosecute: { verdict: pass, findings: [], question: "" }

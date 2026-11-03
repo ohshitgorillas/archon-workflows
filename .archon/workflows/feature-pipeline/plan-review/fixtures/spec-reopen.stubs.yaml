@@ -1,0 +1,30 @@
+exec-code: true
+fixture:
+  expect: completed
+  reached: [recall, track, brief, rounds, spec, arbitrate, route, verdict, keep]
+  inputs:
+    design: docs/d.md
+    scope: "u1"
+    survey: "gate tail"
+    carry: "none"
+    answer: "go with r"
+    resume: >-
+      {"next":"blocked","resume":"spec",
+      "plan":{"steps":[{"id":"c1","unit":"u1","paths":["src/a.py"],"check":"make check-a","blocked_by":[]}],"decisions":[]},
+      "spec":null,"findings":[],"question":"Use r or a?","answers":[]}
+  resolved-text-contains:
+    keep: '"verdict":"refused","recalled":false,"findings":[{"author":"plan","target":"c1","field":"paths"'
+track: { track: full }
+brief: { ok: true }
+spec:
+  spec:
+    lines:
+      - { id: t1, step: c1, claim: a works, mark: RED, preserves: null, file: tests/test_a.py, shared: [], setup: none, assertion: a returns 1 }
+    helpers: []
+    steps: [{ id: w1, before: c1, lines: [t1], paths: [tests/test_a.py], check: "make test-a", blocked_by: [] }]
+    decisions: []
+  question: ""
+arbitrate:
+  verdict: fail
+  findings: [{ author: plan, target: c1, field: paths, cause: "t1 tests src/a.py, which step c1 never changes.", severity: blocking }]
+  question: ""

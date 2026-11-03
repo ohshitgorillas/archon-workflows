@@ -4,27 +4,20 @@ description: >-
   build. First recall looks up the plan record for this design and scope, on any commit: a
   record another run wrote, that passed review, that the owner has not rejected, and none
   of whose Plan or Spec paths changed since the commit it was written on, is reused as it
-  stands, and no round or agent runs. Otherwise, strictly in order and starting from the
-  recalled record when there is one: the planner cuts the code steps from the Detective's
-  file:line answers, a citation resolver checks and corrects any cite, a check probe reads
-  every step's check against the run's checkout root and branch without running it, and the
-  prosecutor rules on the Plan; only when no prosecutor finding is blocking and no
-  probe finding stands does the specifier write the test spec against that
-  approved Plan, measuring through the Examiner on a throwaway copy, and the arbiter rule on
-  the Spec. A blocking arbiter finding against the Plan reopens it; minor findings never
-  route. Attempts are judged on their findings, never by a counter: the planner or the
-  specifier gets another attempt while the blocking findings include only ones no earlier
-  attempt in this review was given; a blocking finding that comes back after an attempt
-  addressed it, with the same cause and basis or the same target and field, makes the call return
-  refused at once and finish cancels with the blocking findings. A resumed call carries the
-  findings already addressed by the call it resumes. A blocking decision (one a
-  Plan or Spec step lists in blocked_by) stops the round as soon as its author writes it,
-  before the prosecutor or arbiter runs: the call returns verdict blocked with the question
-  for its caller to ask the owner, and a later call given resume (that call's stopped field) and
-  answer (the owner's reply) starts again from where it stopped with the answer designed in.
-  Returns the Plan and Spec, a verdict of pass, refused or blocked, the findings, every
-  decision of the Plan and Spec, the blocking questions, whether it was recalled, the owner's
-  approval and the record key; keep then writes that result to the plan record.
+  stands, and no round or agent runs. Otherwise brief reads the inputs once, and four
+  speakers continue from its session, each on its own branch for the whole call: the
+  planner cuts the code steps from the Detective's file:line answers, a citation resolver
+  checks and corrects any cite, and the prosecutor rules on the Plan; once it passes, the
+  specifier writes the test spec against that Plan, measuring through the Examiner on a
+  throwaway copy, and the arbiter rules on the Spec. route reads only the last verdict: a
+  fail goes back to its author (an arbiter finding against the Plan reopens the Plan), a
+  refused ends the call, and a blocked ends it with the reviewer's one question for its
+  caller to ask the owner; a later call given resume (that call's stopped field) and answer
+  (the owner's reply) starts again from where it stopped. Repeats and the legitimacy of a
+  question are the reviewers' judgment, never a node's. Returns the Plan and Spec, a
+  verdict of pass, refused or blocked, the findings, every decision of the Plan and Spec,
+  the blocking question, whether it was recalled, the owner's approval and the record key;
+  keep then writes that result to the plan record.
 provider: claude
 model: claude-opus-5-5
 effort: medium
@@ -129,8 +122,8 @@ nodes:
         def one($n): if length == 1 then .[0] else error("recall: \($n) is not one JSON value") end;
         ($record | one("record")) as $record | ($stopped | one("stopped")) as $stopped | ($moved | one("moved")) as $moved |
         (if $answer == "" then []
-         else [{decisions: (($stopped // {}).questions // []), text: $answer}] end) as $given
-        | ((($stopped // {}).answers // []) + (($record // {}).answers // []) + $given
+         else [{question: (($stopped // {}).question // ""), text: $answer}] end) as $replied
+        | ((($stopped // {}).answers // []) + (($record // {}).answers // []) + $replied
            | reduce .[] as $a ([]; if any(.[]; . == $a) then . else . + [$a] end)) as $answers
         | {
           key: $key,
@@ -176,9 +169,9 @@ nodes:
           items:
             type: object
             properties:
-              decisions: { type: array, items: { type: object } }
+              question: { type: string }
               text: { type: string }
-            required: [decisions, text]
+            required: [text]   # records kept before the one-question stop pair decisions, not a question, with text
         record: { type: [object, 'null'] }
       required: [key, design, design_blob, scope, head, moved, read, from, root, branch, next, start, seed, answers, record]
 
@@ -195,19 +188,33 @@ nodes:
         track: { type: string, enum: [full, tests-only, test-free] }
       required: [track]
 
-  - id: rounds
+  - id: brief
+    command: brief
     depends_on: [recall, track]
+    when: "$recall.output.next == 'rounds'"
+    context: fresh
+    mutates_checkout: false
+    allowed_tools: [Read]
+    output_format:
+      type: object
+      properties:
+        ok: { type: boolean }
+      required: [ok]
+      additionalProperties: false
+
+  - id: rounds
+    depends_on: [recall, track, brief]
     when: "$recall.output.next == 'rounds'"
     loop_group:
       max_iterations: 24
       until_bash: |
-        n=$round.output.next
+        n=$route.output.next
         [ "$n" = done ] || [ "$n" = refused ] || [ "$n" = blocked ]
       nodes:
         - id: plan
           command: plan
-          when: "$track.output.track != 'tests-only' && $LOOP_PREV.round.output.next == 'plan' || $track.output.track != 'tests-only' && $LOOP_PREV.round.output.next != 'spec' && $recall.output.start == 'plan'"
-          context: fresh
+          when: "$LOOP_PREV.route.output.next == 'plan' || $LOOP_PREV.route.output == '' && $track.output.track != 'tests-only' && $recall.output.start != 'spec'"
+          context: { resume: brief }
           mutates_checkout: false
           allowed_tools: [Read, Grep, Glob, Agent]   # Archon caps an inline agent's tools at its node's allowed_tools; the detective needs Read, Grep and Glob
           agents:
@@ -234,57 +241,62 @@ nodes:
           output_format:
             type: object
             properties:
-              steps:
-                type: array
-                maxItems: 20
-                items:
-                  type: object
-                  properties:
-                    id: { type: string, pattern: '^c[0-9]+$' }
-                    unit: { type: string }
-                    paths:
-                      type: array
-                      minItems: 1
-                      items: { type: string }
-                    check: { type: string }
-                    blocked_by:
-                      type: array
-                      items: { type: string, pattern: '^[cd][0-9]+$' }
-                    cites:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          path: { type: string }
-                          line: { type: integer, minimum: 1 }
-                          quote: { type: string, minLength: 1 }
-                        required: [path, line, quote]
-                  required: [id, unit, paths, check, blocked_by]
-              landed:
-                type: array
-                items: { type: string }
-              decisions:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    id: { type: string, pattern: '^d[0-9]+$' }
-                    question: { type: string }
-                    recommend: { type: string }
-                    alternative: { type: string }
-                    cost: { type: string }
-                  required: [id, question, recommend, alternative, cost]
-            required: [steps, decisions]
+              plan:
+                type: object
+                properties:
+                  steps:
+                    type: array
+                    maxItems: 20
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, pattern: '^c[0-9]+$' }
+                        unit: { type: string }
+                        paths:
+                          type: array
+                          minItems: 1
+                          items: { type: string }
+                        check: { type: string }
+                        blocked_by:
+                          type: array
+                          items: { type: string, pattern: '^c[0-9]+$' }
+                        cites:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              path: { type: string }
+                              line: { type: integer, minimum: 1 }
+                              quote: { type: string, minLength: 1 }
+                            required: [path, line, quote]
+                      required: [id, unit, paths, check, blocked_by]
+                  landed:
+                    type: array
+                    items: { type: string }
+                  decisions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, pattern: '^d[0-9]+$' }
+                        question: { type: string }
+                        recommend: { type: string }
+                        alternative: { type: string }
+                        cost: { type: string }
+                      required: [id, question, recommend, alternative, cost]
+                required: [steps, decisions]
+              question: { type: string }
+            required: [plan, question]
+            additionalProperties: false
 
         - id: cite
           script: cite
           runtime: uv
-          depends_on: [plan, hold]
-          when: "$hold.output.stop == false"
+          depends_on: [plan]
           mutates_checkout: false
           timeout: 60000
           with:
-            plan: $plan.output
+            plan: $plan.output.plan
           output_format:
             type: object
             properties:
@@ -302,20 +314,16 @@ nodes:
                   required: [step, path, line, quote, reason]
             required: [plan, unresolved]
 
-        - id: probe
-          script: probe
-          runtime: uv
-          depends_on: [plan, hold]
-          when: "$hold.output.stop == false"
+        - id: prosecute
+          command: prosecute
+          depends_on: [cite]
+          context: { resume: brief }
           mutates_checkout: false
-          timeout: 60000
-          with:
-            plan: $plan.output
-            root: $recall.output.root
-            branch: $recall.output.branch
+          allowed_tools: [Read, Grep, Glob]
           output_format:
             type: object
             properties:
+              verdict: { type: string, enum: [pass, fail, refused, blocked] }
               findings:
                 type: array
                 items:
@@ -323,44 +331,19 @@ nodes:
                   properties:
                     author: { type: string, enum: [plan] }
                     target: { type: string }
-                    field: { type: string, enum: [check] }
+                    field: { type: string }
                     cause: { type: string }
-                    basis: { type: string, minLength: 1 }
-                    severity: { type: string, enum: [blocking] }
-                    design_it_in: { type: boolean }
-                  required: [author, target, field, cause, basis, severity, design_it_in]
-            required: [findings]
-
-        - id: prosecute
-          command: prosecute
-          depends_on: [cite, probe, hold]
-          when: "$hold.output.stop == false"
-          context: fresh
-          mutates_checkout: false
-          allowed_tools: [Read, Grep, Glob]
-          output_format:
-            type: object
-            properties:
-              verdict: { type: string, enum: [pass, fail] }
-              findings:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    author: { type: string, enum: [plan, spec] }
-                    target: { type: string }
-                    field: { type: string, enum: [unit, paths, check, order, blocked_by, cites, step, before, file, shared, setup, assertion, whole] }
-                    cause: { type: string }
-                    basis: { type: string, minLength: 1 }
                     severity: { type: string, enum: [blocking, minor] }
-                    design_it_in: { type: boolean }
-                  required: [author, target, field, cause, basis, severity, design_it_in]
-            required: [verdict, findings]
+                  required: [author, target, field, cause, severity]
+                  additionalProperties: false
+              question: { type: string }
+            required: [verdict, findings, question]
+            additionalProperties: false
 
         - id: spec
           command: spec
-          when: "$track.output.track == 'tests-only' || $track.output.track == 'full' && $LOOP_PREV.round.output.next == 'spec' || $track.output.track == 'full' && $LOOP_PREV.round.output.next != 'plan' && $recall.output.start == 'spec'"
-          context: fresh
+          when: "$LOOP_PREV.route.output.next == 'spec' || $LOOP_PREV.route.output == '' && $track.output.track == 'tests-only' || $LOOP_PREV.route.output == '' && $recall.output.start == 'spec'"
+          context: { resume: brief }
           mutates_checkout: false
           allowed_tools: [Read, Grep, Glob, Agent]
           sandbox:
@@ -393,110 +376,81 @@ nodes:
           output_format:
             type: object
             properties:
-              lines:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    id: { type: string, pattern: '^t[0-9]+$' }
-                    step: { type: [string, 'null'] }
-                    claim: { type: string }
-                    mark: { type: string, enum: [RED, GREEN] }
-                    preserves: { type: [string, 'null'] }
-                    file: { type: string }
-                    shared:
-                      type: array
-                      items: { type: string }
-                    setup: { type: [string, 'null'] }
-                    assertion: { type: [string, 'null'] }
-                  required: [id, step, claim, mark, preserves, file, shared, setup, assertion]
-              helpers:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    id: { type: string, pattern: '^h[0-9]+$' }
-                    path: { type: string }
-                    provides: { type: string }
-                  required: [id, path, provides]
-              steps:
-                type: array
-                maxItems: 20
-                items:
-                  type: object
-                  properties:
-                    id: { type: string, pattern: '^w[0-9]+$' }
-                    before: { type: [string, 'null'] }
-                    lines:
-                      type: array
-                      minItems: 1
-                      items: { type: string }
-                    paths:
-                      type: array
-                      items: { type: string }
-                    check: { type: string }
-                    blocked_by:
-                      type: array
-                      items: { type: string, pattern: '^[cdw][0-9]+$' }
-                  required: [id, before, lines, paths, check, blocked_by]
-              decisions:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    id: { type: string, pattern: '^d[0-9]+$' }
-                    question: { type: string }
-                    recommend: { type: string }
-                    alternative: { type: string }
-                    cost: { type: string }
-                  required: [id, question, recommend, alternative, cost]
-            required: [lines, helpers, steps, decisions]
-
-        - id: hold
-          depends_on: [plan, spec]
-          trigger_rule: all_done
-          mutates_checkout: false
-          bash: |
-            set -euo pipefail
-            plan=$plan.output
-            spec=$spec.output
-            prev=$LOOP_PREV.round.output
-            found=$recall.output
-            [ -n "$plan" ] || plan=null
-            [ -n "$spec" ] || spec=null
-            [ -n "$prev" ] || prev=null
-            jq -nc --slurpfile planned <(printf '%s' "$plan") --slurpfile written <(printf '%s' "$spec") --slurpfile last <(printf '%s' "$prev") --slurpfile found <(printf '%s' "$found") '
-              def one($n): if length == 1 then .[0] else error("hold: \($n) is not one JSON value") end;
-              ($planned | one("planned")) as $planned | ($written | one("written")) as $written | ($last | one("last")) as $last | ($found | one("found")) as $found |
-              (if $planned != null then "plan"
-               elif $written != null then "spec"
-               else error("hold: neither the planner nor the specifier answered this round") end) as $at
-              | (if $at == "plan" then $planned else (($last // $found.seed // {}).plan // {}) end) as $p
-              | (if $at == "spec" then $written else {} end) as $s
-              | [($p.steps // [])[], ($s.steps // [])[] | .blocked_by[] | select(startswith("d"))] as $ids
-              | ([($p.decisions // [])[], ($s.decisions // [])[]]
-                 | map(select(.id | IN($ids[])))
-                 | unique_by(.id)) as $asked
-              | {at: $at, stop: ($asked | length > 0), questions: $asked}'
-          output_format:
-            type: object
-            properties:
-              at: { type: string, enum: [plan, spec] }
-              stop: { type: boolean }
-              questions: { type: array, items: { type: object } }
-            required: [at, stop, questions]
+              spec:
+                type: object
+                properties:
+                  lines:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, pattern: '^t[0-9]+$' }
+                        step: { type: [string, 'null'] }
+                        claim: { type: string }
+                        mark: { type: string, enum: [RED, GREEN] }
+                        preserves: { type: [string, 'null'] }
+                        file: { type: string }
+                        shared:
+                          type: array
+                          items: { type: string }
+                        setup: { type: [string, 'null'] }
+                        assertion: { type: [string, 'null'] }
+                      required: [id, step, claim, mark, preserves, file, shared, setup, assertion]
+                  helpers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, pattern: '^h[0-9]+$' }
+                        path: { type: string }
+                        provides: { type: string }
+                      required: [id, path, provides]
+                  steps:
+                    type: array
+                    maxItems: 20
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, pattern: '^w[0-9]+$' }
+                        before: { type: [string, 'null'] }
+                        lines:
+                          type: array
+                          minItems: 1
+                          items: { type: string }
+                        paths:
+                          type: array
+                          items: { type: string }
+                        check: { type: string }
+                        blocked_by:
+                          type: array
+                          items: { type: string, pattern: '^[cw][0-9]+$' }
+                      required: [id, before, lines, paths, check, blocked_by]
+                  decisions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, pattern: '^d[0-9]+$' }
+                        question: { type: string }
+                        recommend: { type: string }
+                        alternative: { type: string }
+                        cost: { type: string }
+                      required: [id, question, recommend, alternative, cost]
+                required: [lines, helpers, steps, decisions]
+              question: { type: string }
+            required: [spec, question]
+            additionalProperties: false
 
         - id: arbitrate
           command: arbitrate
-          depends_on: [spec, hold]
-          when: "$hold.output.stop == false"
-          context: fresh
+          depends_on: [spec]
+          context: { resume: brief }
           mutates_checkout: false
           allowed_tools: [Read, Grep, Glob]
           output_format:
             type: object
             properties:
-              verdict: { type: string, enum: [pass, fail] }
+              verdict: { type: string, enum: [pass, fail, refused, blocked] }
               findings:
                 type: array
                 items:
@@ -504,119 +458,75 @@ nodes:
                   properties:
                     author: { type: string, enum: [plan, spec] }
                     target: { type: string }
-                    field: { type: string, enum: [unit, paths, check, order, blocked_by, cites, step, before, file, shared, setup, assertion, whole] }
+                    field: { type: string }
                     cause: { type: string }
-                    basis: { type: string, minLength: 1 }
                     severity: { type: string, enum: [blocking, minor] }
-                    design_it_in: { type: boolean }
-                  required: [author, target, field, cause, basis, severity, design_it_in]
-            required: [verdict, findings]
+                  required: [author, target, field, cause, severity]
+                  additionalProperties: false
+              question: { type: string }
+            required: [verdict, findings, question]
+            additionalProperties: false
 
-        - id: round
-          depends_on: [hold, prosecute, arbitrate]
+        - id: route
+          depends_on: [prosecute, arbitrate]
           trigger_rule: all_done
           mutates_checkout: false
           bash: |
-            held=$hold.output
-            plan=$plan.output
+            set -euo pipefail
             cite=$cite.output
-            probe=$probe.output
             prosecute=$prosecute.output
             spec=$spec.output
             arbitrate=$arbitrate.output
             track=$track.output.track
-            prev=$LOOP_PREV.round.output
-            found=$recall.output
-            [ -n "$plan" ] || plan=null
+            prev=$LOOP_PREV.route.output
+            seed=$recall.output.seed
             [ -n "$cite" ] || cite=null
-            [ -n "$probe" ] || probe=null
             [ -n "$prosecute" ] || prosecute=null
             [ -n "$spec" ] || spec=null
             [ -n "$arbitrate" ] || arbitrate=null
             [ -n "$prev" ] || prev=null
-            jq -nc --slurpfile held <(printf '%s' "$held") --slurpfile planned <(printf '%s' "$plan") --slurpfile resolved <(printf '%s' "$cite") --slurpfile probed <(printf '%s' "$probe") --slurpfile ruling <(printf '%s' "$prosecute") --slurpfile written <(printf '%s' "$spec") --slurpfile arbiter <(printf '%s' "$arbitrate") --slurpfile last <(printf '%s' "$prev") --slurpfile found <(printf '%s' "$found") --arg track "$track" '
-              def one($n): if length == 1 then .[0] else error("round: \($n) is not one JSON value") end;
-              ($held | one("held")) as $held | ($planned | one("planned")) as $planned | ($resolved | one("resolved")) as $resolved | ($probed | one("probed")) as $probed | ($ruling | one("ruling")) as $ruling | ($written | one("written")) as $written | ($arbiter | one("arbiter")) as $arbiter | ($last | one("last")) as $last | ($found | one("found")) as $found |
-              {steps: [], decisions: []} as $noplan
-              | {lines: [], helpers: [], steps: [], decisions: []} as $nospec
-              | ($last // $found.seed // {}) as $p
-              | ($p.addressed // []) as $given
-              | if $held.stop then
+            [ -n "$seed" ] || seed=null
+            jq -nc --slurpfile resolved <(printf '%s' "$cite") --slurpfile ruling <(printf '%s' "$prosecute") --slurpfile written <(printf '%s' "$spec") --slurpfile arbiter <(printf '%s' "$arbitrate") --slurpfile last <(printf '%s' "$prev") --slurpfile seed <(printf '%s' "$seed") --arg track "$track" '
+              def one($n): if length == 1 then .[0] else error("route: \($n) is not one JSON value") end;
+              ($resolved | one("resolved")) as $resolved | ($ruling | one("ruling")) as $ruling | ($written | one("written")) as $written | ($arbiter | one("arbiter")) as $arbiter | ($last | one("last")) as $last | ($seed | one("seed")) as $seed |
+              ($last // $seed // {}) as $p
+              | if $ruling != null then
                   {
-                    next: "blocked",
-                    addressed: $given,
-                    fresh: [],
-                    plan: (if $held.at == "plan" then $planned else ($p.plan // $noplan) end),
-                    spec: (if $held.at == "spec" then $written else ($p.spec // null) end),
-                    findings: ($p.findings // []),
-                    questions: $held.questions,
-                    resume: $held.at
+                    next: ({fail: "plan", refused: "refused", blocked: "blocked",
+                            pass: (if $track == "test-free" then "done" else "spec" end)}[$ruling.verdict]),
+                    resume: (if $ruling.verdict == "blocked" then "plan" else null end),
+                    plan: $resolved.plan,
+                    spec: (if $track == "test-free" then {lines: [], helpers: [], steps: [], decisions: []} else ($p.spec // null) end),
+                    findings: ($ruling.findings + ($resolved.unresolved | map({
+                      author: "plan",
+                      target: .step,
+                      field: "cites",
+                      cause: "\(.path):\(.line) is cited as `\(.quote)`: \(.reason).",
+                      severity: "minor"
+                    }))),
+                    question: (if $ruling.verdict == "blocked" then $ruling.question else "" end)
                   }
-                elif $held.at == "plan" then
-                  ($resolved.unresolved | map({
-                    author: "plan",
-                    target: .step,
-                    field: "cites",
-                    cause: "\(.path):\(.line): \(.reason)",
-                    basis: "the cite quotes `\(.quote)`, and no single line of \(.path) is that text",
-                    severity: "minor",
-                    design_it_in: false
-                  })) as $uncited
-                  | (($probed // {}).findings // []) as $checks
-                  | ($ruling.findings + $uncited + $checks) as $filed
-                  | {
-                      next: (if any($filed[]; .severity == "blocking") then "plan"
-                             elif $track == "test-free" then "done"
-                             else "spec" end),
-                      addressed: $given,
-                      fresh: [$filed[] | select(.severity == "blocking")],
-                      plan: $resolved.plan,
-                      spec: (if $track == "test-free" then $nospec else ($p.spec // null) end),
-                      findings: ($filed + (($p.findings // []) | map(select(.author == "spec")))),
-                      questions: [],
-                      resume: null
-                    }
-                else
+                elif $arbiter != null then
                   {
-                    next: (if any($arbiter.findings[]; .severity == "blocking" and .author == "plan") then (if $track == "tests-only" then "spec" else "plan" end)
-                           elif any($arbiter.findings[]; .severity == "blocking") then "spec"
-                           else "done" end),
-                    addressed: $given,
-                    fresh: [$arbiter.findings[] | select(.severity == "blocking")],
-                    plan: ($p.plan // $noplan),
-                    spec: $written,
-                    findings: ($arbiter.findings + (($p.findings // []) | map(select(.author == "plan" and .severity == "minor")))),
-                    questions: [],
-                    resume: null
+                    next: ({pass: "done", refused: "refused", blocked: "blocked",
+                            fail: (if $track != "tests-only" and any($arbiter.findings[]; .author == "plan" and .severity == "blocking") then "plan" else "spec" end)}[$arbiter.verdict]),
+                    resume: (if $arbiter.verdict == "blocked" then "spec" else null end),
+                    plan: ($p.plan // {steps: [], decisions: []}),
+                    spec: $written.spec,
+                    findings: ($arbiter.findings + (($p.findings // []) | map(select(.severity == "minor")))),
+                    question: (if $arbiter.verdict == "blocked" then $arbiter.question else "" end)
                   }
-                end
-              | .fresh as $now
-              | ([$now[] as $f | $given[] | select((.cause == $f.cause and .basis == $f.basis) or (.target == $f.target and .field == $f.field))] | length > 0) as $back
-              | if $back then .next = "refused"
-                elif .next == "plan" or .next == "spec" then .addressed = ($given + $now)
-                else . end
-              | del(.fresh)'
+                else error("route: neither the prosecutor nor the arbiter ruled this round") end'
           output_format:
             type: object
             properties:
               next: { type: string, enum: [plan, spec, done, refused, blocked] }
-              addressed:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    author: { type: string }
-                    target: { type: string }
-                    field: { type: string }
-                    cause: { type: string }
-                    basis: { type: string }
-                  required: [target, field, cause, basis]
+              resume: { type: [string, 'null'], enum: [plan, spec, null] }
               plan: { type: object }
               spec: { type: [object, 'null'] }
               findings: { type: array, items: { type: object } }
-              questions: { type: array, items: { type: object } }
-              resume: { type: [string, 'null'], enum: [plan, spec, null] }
-            required: [next, addressed, plan, spec, findings, questions, resume]
+              question: { type: string }
+            required: [next, resume, plan, spec, findings, question]
 
   - id: verdict
     runtime: uv
@@ -626,7 +536,7 @@ nodes:
     timeout: 60000
     with:
       recall: $recall.output
-      round: { from: $rounds.output, if_skipped: null }
+      route: { from: $rounds.output, if_skipped: null }
     script: |
       import json
       import os
@@ -644,17 +554,9 @@ nodes:
           return kept
 
 
-      def asked(questions: list) -> str:
-          return "\n".join(
-              "Decision %s: %s Recommend: %s. Alternative: %s. Cost: %s."
-              % (d["id"], d["question"], d["recommend"], d["alternative"], d["cost"])
-              for d in questions
-          )
-
-
       def main() -> int:
           recall = json.loads(os.environ["INPUTS_RECALL"])
-          last = json.loads(os.environ["INPUTS_ROUND"])
+          last = json.loads(os.environ["INPUTS_ROUTE"])
           if last is None and recall["next"] == "reuse":
               record = recall["record"]
               result = {
@@ -688,13 +590,13 @@ nodes:
                   "key": recall["key"],
                   "plan": last["plan"],
                   "spec": spec,
-                  "questions": last["questions"],
-                  "question": asked(last["questions"]),
+                  "questions": [],
+                  "question": last["question"],
                   "stopped": dict(last, answers=recall["answers"]) if blocked else None,
               }
           else:
               print(
-                  "verdict: recall.next is %r but the last round is %s"
+                  "verdict: recall.next is %r but route is %s"
                   % (recall["next"], "missing" if last is None else "present"),
                   file=sys.stderr,
               )

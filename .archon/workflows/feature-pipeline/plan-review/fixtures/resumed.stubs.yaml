@@ -1,7 +1,7 @@
 exec-code: true
 fixture:
   expect: completed
-  reached: [recall, track, rounds, spec, hold, arbitrate, round, verdict, keep]
+  reached: [recall, track, brief, rounds, spec, arbitrate, route, verdict, keep]
   inputs:
     design: docs/d.md
     scope: "u1"
@@ -9,23 +9,20 @@ fixture:
     carry: "none"
     answer: "go with r"
     resume: >-
-      {"next":"blocked","addressed":[{"author":"plan","target":"c1","field":"unit","cause":"old cause","basis":"old basis","severity":"blocking","design_it_in":false}],
+      {"next":"blocked","resume":"spec",
       "plan":{"steps":[{"id":"c1","unit":"u1","paths":["src/a.py"],"check":"make check-a","blocked_by":[]}],"decisions":[]},
-      "spec":{"lines":[{"id":"t1","step":"c1","claim":"a works","mark":"RED","preserves":null,"file":"tests/test_a.py","shared":[],"setup":"none","assertion":"a returns 1"}],
-      "helpers":[],"steps":[{"id":"w1","before":"c1","lines":["t1"],"paths":["tests/test_a.py"],"check":"make test-a","blocked_by":["d1"]}],
-      "decisions":[{"id":"d1","question":"q","recommend":"r","alternative":"a","cost":"c"}]},
-      "findings":[],"questions":[{"id":"d1","question":"q","recommend":"r","alternative":"a","cost":"c"}],
-      "resume":"spec","answers":[]}
+      "spec":null,"findings":[],"question":"Use r or a?","answers":[]}
   resolved-text-contains:
-    round: '"text":"go with r"'
-    hold: '"addressed":[{"author":"plan","target":"c1","field":"unit","cause":"old cause","basis":"old basis"'
-    keep: '"verdict":"pass","recalled":false'
-    spec: '"text":"go with r"'
-spec:
-  lines:
-    - { id: t1, step: c1, claim: a works, mark: RED, preserves: null, file: tests/test_a.py, shared: [], setup: none, assertion: a returns 1 }
-  helpers: []
-  steps: [{ id: w1, before: c1, lines: [t1], paths: [tests/test_a.py], check: "make test-a", blocked_by: [] }]
-  decisions: []
-arbitrate: { verdict: pass, findings: [] }
+    brief: '{"question":"Use r or a?","text":"go with r"}'
+    keep: '"plan":{"steps":[{"id":"c1","unit":"u1","paths":["src/a.py"]'
 track: { track: full }
+brief: { ok: true }
+spec:
+  spec:
+    lines:
+      - { id: t1, step: c1, claim: a works, mark: RED, preserves: null, file: tests/test_a.py, shared: [], setup: none, assertion: a returns 1 }
+    helpers: []
+    steps: [{ id: w1, before: c1, lines: [t1], paths: [tests/test_a.py], check: "make test-a", blocked_by: [] }]
+    decisions: []
+  question: ""
+arbitrate: { verdict: pass, findings: [], question: "" }

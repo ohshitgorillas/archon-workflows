@@ -1,23 +1,25 @@
 exec-code: true
 fixture:
   expect: completed
-  reached: [recall, track, rounds, plan, cite, probe, prosecute, round, verdict, keep]
+  reached: [recall, track, brief, rounds, plan, cite, prosecute, route, verdict, keep]
   inputs: { design: docs/d.md, scope: "u1", survey: "gate tail", carry: "none" }
   resolved-text-contains:
     prosecute: '"line":3,"quote":"gamma line three"'
-    round: '"line":2,"quote":"omega line none","reason":"quote not found"'
-    keep: '"findings":[{"author":"plan","target":"c1","field":"cites","cause":".archon/workflows/feature-pipeline/plan-review/fixtures/cites.txt:2: quote not found","basis":"the cite quotes `omega line none`, and no single line of .archon/workflows/feature-pipeline/plan-review/fixtures/cites.txt is that text","severity":"minor","design_it_in":false}]'
-plan:
-  steps:
-    - id: c1
-      unit: u1
-      paths: [src/a.py]
-      check: "make check-a"
-      blocked_by: []
-      cites:
-        - { path: .archon/workflows/feature-pipeline/plan-review/fixtures/cites.txt, line: 1, quote: "alpha line one" }
-        - { path: .archon/workflows/feature-pipeline/plan-review/fixtures/cites.txt, line: 4, quote: "gamma line three" }
-        - { path: .archon/workflows/feature-pipeline/plan-review/fixtures/cites.txt, line: 2, quote: "omega line none" }
-  decisions: []
-prosecute: { verdict: pass, findings: [] }
+    keep: '"field":"cites","cause":".archon/workflows/feature-pipeline/plan-review/fixtures/cites.txt:2 is cited as `omega line none`: quote not found.","severity":"minor"'
 track: { track: full }
+brief: { ok: true }
+plan:
+  plan:
+    steps:
+      - id: c1
+        unit: u1
+        paths: [src/a.py]
+        check: "make check-a"
+        blocked_by: []
+        cites:
+          - { path: .archon/workflows/feature-pipeline/plan-review/fixtures/cites.txt, line: 1, quote: "alpha line one" }
+          - { path: .archon/workflows/feature-pipeline/plan-review/fixtures/cites.txt, line: 4, quote: "gamma line three" }
+          - { path: .archon/workflows/feature-pipeline/plan-review/fixtures/cites.txt, line: 2, quote: "omega line none" }
+    decisions: []
+  question: ""
+prosecute: { verdict: pass, findings: [], question: "" }
