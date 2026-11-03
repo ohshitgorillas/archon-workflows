@@ -1,4 +1,4 @@
-Status: approved.
+Status: superseded by 2026-11-03-plan-review-rebuild-design.md
 
 ## Why
 
