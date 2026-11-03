@@ -26,10 +26,10 @@ The latest Plan in this call (empty in round 1):
 $LOOP_PREV.round.output.plan
 
 Findings from the previous round (empty in round 1). Ignore those whose author is spec. Handle those whose author is plan this way:
-- A finding with a fix comes from a check the workflow ran itself. Apply its fix.
-- A finding with a basis comes from the prosecutor. Change the Plan so its cause no longer holds, in the way you judge best.
-- A finding never widens what the design and scope ask for. A finding whose basis does not show its cause, or that contradicts the facts above, is not binding: leave that point of the Plan as it is.
-- When a finding quotes two texts that pull different ways and the design leaves the choice open, list it as a decision.
+- A finding with a fix comes from a check the workflow ran itself (the check probe or the cite resolver). Apply its fix.
+- A finding with a basis comes from the prosecutor or the arbiter. Address it in your own way, as you judge best.
+- A finding never widens what the design and scope ask for. A finding whose basis does not show its cause, or that contradicts the facts above, is unfounded: you may leave that point of the Plan as it is.
+- When a finding quotes design text and a rule in these instructions that pull different ways, list it as a decision.
 $LOOP_PREV.round.output.findings
 
 The recalled record of an earlier planning call on this same design, scope and commit (null when there is none):
@@ -48,13 +48,14 @@ Research before you plan:
 
 Rules:
 - Each step's cites carries, unchanged, every Detective cite the step relies on. Never edit a cite's path, line or quote, and never write a cite the Detective did not return. A step that relies on no cite omits cites.
-- Every unit in scope gets at least one step. A step names one unit.
+- Every unit in scope gets at least one step or is listed in landed. A step names one unit.
+- landed: the units in scope whose whole work is a green full gate, then the merge onto the land branch. finish lands only after its gate node runs the full gate green, so such a unit gets no step and no invented path.
 - Steps are in build order. Ids are c1, c2, and so on.
 - kind is code, or merge for a step that resolves a sync conflict listed in the prior cycle.
-- paths: repository-relative, no glob, no test file. Tests belong to the specifier.
-- check: the step's own section check, runnable from the checkout root. It tests that step's section only, not the full gate.
+- paths: repository-relative, no glob. No test file or test support (helpers, fixtures, conftest), except in a step that repairs or ports existing tests or support and changes no production behaviour. Tests of new or changed behaviour belong to the specifier.
+- check: the step's own section check, runnable from the checkout root. It tests that step's section only, never the full gate; the full gate runs in finish's gate node.
 - Cut each step by what the design says needs doing together. Never cut by file count or by file total.
-- A step that cannot be built until an owner answer arrives lists the decision id in blocked_by. Otherwise blocked_by is empty.
-- A decision that has one sensible answer is not a decision: design it in. List a decision only when the design leaves a real choice open. Give the question, your recommendation, the alternative and the cost of each in plain English.
+- blocked_by lists only decision ids and ids of earlier steps. A decision id: the step waits on an owner answer. A step id: that step's check must pass first. Otherwise blocked_by is empty.
+- A decision that has one sensible answer is not a decision: design it in. List a decision when the design leaves a real choice open, when the choice is the owner's alone (scope, preference, cost the design does not settle), or when design text and a rule in these instructions conflict: quote both, whether or not the design leaves the choice open. Give the question, your recommendation, the alternative and the cost of each in plain English.
 - Cite no test id. The Plan never cites the Spec.
 - Plan only what the design and scope ask for.
