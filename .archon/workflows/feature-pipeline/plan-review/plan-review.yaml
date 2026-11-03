@@ -11,8 +11,12 @@ description: >-
   probe finding stands does the specifier write the test spec against that
   approved Plan, measuring through the Examiner on a throwaway copy, and the arbiter rule on
   the Spec. A blocking arbiter finding against the Plan reopens it; minor findings never
-  route. At most 3 Plan attempts and 3 Spec attempts per call; past that the
-  call returns refused and finish cancels with the blocking findings. A blocking decision (one a
+  route. Attempts are judged on their findings, never by a counter: the planner or the
+  specifier gets another attempt while the blocking findings include only ones no earlier
+  attempt in this review was given; a blocking finding that comes back after an attempt
+  addressed it, with the same cause or target and the same basis, makes the call return
+  refused at once and finish cancels with the blocking findings. A resumed call carries the
+  findings already addressed by the call it resumes. A blocking decision (one a
   Plan or Spec step lists in blocked_by) stops the round as soon as its author writes it,
   before the prosecutor or arbiter runs: the call returns verdict blocked with the question
   for its caller to ask the owner, and a later call given resume (that call's stopped field) and
@@ -174,7 +178,7 @@ nodes:
     depends_on: [recall, track]
     when: "$recall.output.next == 'rounds'"
     loop_group:
-      max_iterations: 6
+      max_iterations: 24
       until_bash: |
         n=$round.output.next
         [ "$n" = done ] || [ "$n" = refused ] || [ "$n" = blocked ]
@@ -508,13 +512,12 @@ nodes:
               {steps: [], decisions: []} as $noplan
               | {lines: [], helpers: [], steps: [], decisions: []} as $nospec
               | ($last // $found.seed // {}) as $p
-              | ($p.cuts // 0) as $cuts
-              | ($p.specs // 0) as $specs
+              | ($p.addressed // []) as $given
               | if $held.stop then
                   {
                     next: "blocked",
-                    cuts: $cuts,
-                    specs: $specs,
+                    addressed: $given,
+                    fresh: [],
                     plan: (if $held.at == "plan" then $planned else ($p.plan // $noplan) end),
                     spec: (if $held.at == "spec" then $written else ($p.spec // null) end),
                     findings: ($p.findings // []),
@@ -536,8 +539,8 @@ nodes:
                       next: (if any($filed[]; .severity == "blocking") then "plan"
                              elif $track == "test-free" then "done"
                              else "spec" end),
-                      cuts: ($cuts + 1),
-                      specs: $specs,
+                      addressed: $given,
+                      fresh: [$filed[] | select(.severity == "blocking")],
                       plan: $resolved.plan,
                       spec: (if $track == "test-free" then $nospec else ($p.spec // null) end),
                       findings: ($filed + (($p.findings // []) | map(select(.author == "spec")))),
@@ -549,8 +552,8 @@ nodes:
                     next: (if any($arbiter.findings[]; .severity == "blocking" and .author == "plan") then (if $track == "tests-only" then "spec" else "plan" end)
                            elif any($arbiter.findings[]; .severity == "blocking") then "spec"
                            else "done" end),
-                    cuts: $cuts,
-                    specs: ($specs + 1),
+                    addressed: $given,
+                    fresh: [$arbiter.findings[] | select(.severity == "blocking")],
                     plan: ($p.plan // $noplan),
                     spec: $written,
                     findings: ($arbiter.findings + (($p.findings // []) | map(select(.author == "plan" and .severity == "minor")))),
@@ -558,19 +561,32 @@ nodes:
                     resume: null
                   }
                 end
-              | if (.next == "plan" and .cuts >= 3) or (.next == "spec" and .specs >= 3) then .next = "refused" else . end'
+              | .fresh as $now
+              | ([$now[] as $f | $given[] | select((.cause == $f.cause or .target == $f.target) and .basis == $f.basis)] | length > 0) as $back
+              | if $back then .next = "refused"
+                elif .next == "plan" or .next == "spec" then .addressed = ($given + $now)
+                else . end
+              | del(.fresh)'
           output_format:
             type: object
             properties:
               next: { type: string, enum: [plan, spec, done, refused, blocked] }
-              cuts: { type: integer }
-              specs: { type: integer }
+              addressed:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    author: { type: string }
+                    target: { type: string }
+                    cause: { type: string }
+                    basis: { type: string }
+                  required: [target, cause, basis]
               plan: { type: object }
               spec: { type: [object, 'null'] }
               findings: { type: array, items: { type: object } }
               questions: { type: array, items: { type: object } }
               resume: { type: [string, 'null'], enum: [plan, spec, null] }
-            required: [next, cuts, specs, plan, spec, findings, questions, resume]
+            required: [next, addressed, plan, spec, findings, questions, resume]
 
   - id: verdict
     runtime: uv
