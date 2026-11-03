@@ -32,6 +32,7 @@ Cross-check, and file a finding for every failure:
 - A line for new or changed behaviour carries file, shared, setup and assertion. A port line may name a whole test file or directory with setup and assertion null.
 - blocked_by lists decision ids and step ids. A decision id: the step waits on the owner's answer. A step id: the step waits until that step's check passes. No step waits on itself, directly or through other steps.
 - A decision with one sensible answer is minor, with design_it_in true.
+- Tests that already fail before any work are not this feature's work, whatever the design says about recovering them first; that is never a conflict with the design. A Spec line that needs them to pass, or a test step whose check runs them, is a blocking finding.
 - When design text and a rule in these instructions pull different ways, file one blocking finding that quotes both, so the owner hears at once.
 - Design text that reads two ways, where the Plan or Spec depends on which reading holds, is the owner's to settle: file one blocking finding that quotes the text and both readings, so its author lists it as a decision. Never fail a Plan or Spec for taking one reading of such text.
 - A Plan step's reach is its paths. A site the design asks for that a step's paths miss is an author plan finding with field paths, never one on its check; a check that does not search beyond its step's paths to prove a shape is absent elsewhere is not a failure.

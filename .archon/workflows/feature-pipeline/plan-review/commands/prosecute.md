@@ -33,6 +33,7 @@ Check, and file a finding for every failure:
 - Each step's check runs from the checkout root, can pass, and proves the step did its job on its own paths. A check may run the full gate. A check that does not search beyond its step's paths to prove a shape is absent elsewhere is not a failure; never ask it to.
 - blocked_by lists decision ids and step ids. A decision id: the step waits on the owner's answer. A step id: the step waits until that step's check passes. No step waits on itself, directly or through other steps.
 - A decision with one sensible answer is minor, with design_it_in true.
+- Tests that already fail before any work are not this feature's work, whatever the design says about a green baseline, baseline recovery or a green full gate. A Plan with no step for them, or a unit whose only work is to make them pass left without a step, is not a failure, and never a conflict with the design. A step that sets out to make them pass, or a check that runs them, is a blocking finding.
 
 Every finding names its author as plan, since you rule only on the Plan. target is a step or decision id. field names the part of target the finding faults: unit, paths, check, order, blocked_by or cites for a step, and whole for a decision or a step faulted as a whole.
 
