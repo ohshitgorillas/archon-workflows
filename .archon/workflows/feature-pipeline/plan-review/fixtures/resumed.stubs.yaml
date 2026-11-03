@@ -19,6 +19,7 @@ fixture:
   resolved-text-contains:
     round: '"text":"go with r"'
     keep: '"verdict":"pass","recalled":false'
+    spec: '"text":"go with r"'
 spec:
   lines:
     - { id: t1, step: c1, claim: a works, mark: RED, preserves: null, file: tests/test_a.py, shared: [], setup: none, assertion: a returns 1 }

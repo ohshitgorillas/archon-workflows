@@ -4,7 +4,7 @@ fixture:
   reached: [read-request, planning__verdict, settled, planned, gate, approval]
   inputs: { request: docs/requests/x.md }
   resolved-text-contains:
-    gate: "\"blocked_by\":[]"
+    gate: "Plan:\n{\"steps\":[{\"id\":\"c1\",\"unit\":\"request\",\"kind\":\"code\",\"paths\":[\"src/a.py\"],\"check\":\"make check-a\",\"blocked_by\":[]}],\"decisions\":[]}\n\nSpec:\n{\"lines\":[{\"id\":\"t42\",\"step\":\"c1\""
     prosecute: "Design source: neither the run's checkout nor a ref: read it as given\n\nWhere this run runs. These facts are fixed. Never infer them from where a file does or does not resolve.\n- Land branch: \n- Land checkout: \n"
 read-request: "request text"
 plan:
@@ -14,7 +14,11 @@ prosecute: { verdict: pass, findings: [] }
 planning__verdict: &verdict
   verdict: pass
   plan: { steps: [{ id: c1, unit: request, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }], decisions: [] }
-  spec: { lines: [], helpers: [], steps: [], decisions: [] }
+  spec:
+    lines: [{ id: t42, step: c1, claim: a works, mark: RED, preserves: null, file: tests/test_a.py, shared: [], setup: none, assertion: a returns 1 }]
+    helpers: []
+    steps: [{ id: w42, before: c1, lines: [t42], paths: [tests/test_a.py], check: "make test-a", blocked_by: [] }]
+    decisions: []
   findings: []
   decisions: []
   recalled: false
