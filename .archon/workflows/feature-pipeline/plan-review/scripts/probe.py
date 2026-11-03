@@ -267,6 +267,7 @@ def main() -> int:
                 {
                     "author": "plan",
                     "target": step.get("id", ""),
+                    "field": "check",
                     "cause": f"check `{step.get('check', '')}`: {hit.cause}",
                     "basis": hit.basis,
                     "severity": "blocking",

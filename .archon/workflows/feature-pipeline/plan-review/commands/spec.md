@@ -28,7 +28,7 @@ $LOOP_PREV.round.output.plan
 Your latest Spec in this call (empty on your first round):
 $LOOP_PREV.round.output.spec
 
-Findings from the previous round. Those whose author is spec come from the arbiter, each with a basis: address each in your own way, as you judge best; you may leave one whose basis does not show its cause. Those whose author is plan landed in the Plan; read them to see why the Plan changed, then write the Spec against the Plan above:
+Findings from the previous round. Those whose author is spec come from the arbiter, each with a basis and a field (the part of its target it faults): address each in your own way, as you judge best; you may leave one whose basis does not show its cause. Those whose author is plan landed in the Plan; read them to see why the Plan changed, then write the Spec against the Plan above:
 $LOOP_PREV.round.output.findings
 
 The recalled record of an earlier planning call on this same design, scope and commit (null when there is none):
@@ -64,4 +64,4 @@ Rules:
 - Declare a helper used by several lines in helpers and cite it by id in shared.
 - Test steps: each line sits in one test step. The step's before field is the Plan code step it must run before, or null when its lines are test-only; a test step with before null is built after every Plan step, in Spec order. Its paths are its lines' files plus the paths of the helpers it defines. Its check runs those tests from the checkout root.
 - blocked_by lists decision ids and step ids. A decision id: the step waits on the owner's answer. A step id: the step waits until that step's check passes. No step waits on itself, directly or through other steps.
-- List a decision when the design leaves a real choice open, or when design text and a rule in these instructions conflict: quote both, and put its id in blocked_by of every test step it touches, so the owner hears at once. Give question, recommendation, alternative and cost in plain English.
+- List a decision when the design leaves a real choice open, when design text and a rule in these instructions conflict (quote both), or when a finding shows design text that reads two ways (quote the text and both readings): put its id in blocked_by of every test step it touches, so the owner hears at once. Give question, recommendation, alternative and cost in plain English.

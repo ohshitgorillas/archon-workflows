@@ -26,10 +26,11 @@ The latest Plan in this call (empty in round 1):
 $LOOP_PREV.round.output.plan
 
 Findings from the previous round (empty in round 1). Ignore those whose author is spec. Handle those whose author is plan this way:
-- Every finding carries a basis: the text or fact it rests on. Address it in your own way, as you judge best.
+- Every finding carries a basis: the text or fact it rests on, and a field: the part of its target it faults. Address it in your own way, as you judge best.
+- A finding with field paths says the design asks for a site the step's paths miss; it is answered in paths, never by widening the check.
 - A finding from a check the workflow ran itself (the check probe or the cite resolver) rests on a fact of this run and is never unfounded.
 - A finding never widens what the design and scope ask for. A finding whose basis does not show its cause, or that contradicts the facts above, is unfounded: you may leave that point of the Plan as it is.
-- When a finding quotes design text and a rule in these instructions that pull different ways, list it as a decision.
+- When a finding quotes design text and a rule in these instructions that pull different ways, or quotes design text that reads two ways where the Plan depends on the reading, list it as a decision.
 $LOOP_PREV.round.output.findings
 
 The recalled record of an earlier planning call on this same design, scope and commit (null when there is none):
@@ -62,9 +63,9 @@ Rules:
 - Every unit in scope gets at least one step or is listed in landed. A step names one unit.
 - landed: the units in scope whose whole work is the merge onto the land branch. finish's land node does it, so such a unit gets no step and no invented path. finish lands each section on its own green check, never on the full gate, so a unit that needs a green full gate gets a step whose check runs it.
 - Steps are in build order. Ids are c1, c2, and so on.
-- paths: repository-relative, no glob. A step may name test files and test support. Repairing or porting tests needs no code step and no invented production change. Tests of new or changed behaviour belong to the specifier.
-- check: runnable from the checkout root, and it proves the step did its job. It may run the full gate.
+- paths: repository-relative, no glob. A step's paths are its reach. When the design retires a shape or makes a change across a tree, paths lists every site, taken from the Detective's tables. A step may name test files and test support. Repairing or porting tests needs no code step and no invented production change. Tests of new or changed behaviour belong to the specifier.
+- check: runnable from the checkout root, and it proves the step did its job on its own paths: the tests and gate the work affects pass, and what the step removes is gone from those files by name. It never searches beyond the step's paths to prove a shape is absent elsewhere. It may run the full gate.
 - Cut steps by what the design says needs doing together.
 - blocked_by lists decision ids and step ids. A decision id: the step waits on the owner's answer. A step id: the step waits until that step's check passes. No step waits on itself, directly or through other steps.
-- A decision that has one sensible answer is not a decision: design it in. List a decision when the design leaves a real choice open, when the choice is the owner's alone (scope, preference, cost the design does not settle), or when design text and a rule in these instructions conflict: quote both, and put its id in blocked_by of every step it touches, so the owner hears at once. Give the question, your recommendation, the alternative and the cost of each in plain English.
+- A decision that has one sensible answer is not a decision: design it in. List a decision when the design leaves a real choice open, when the choice is the owner's alone (scope, preference, cost the design does not settle), when design text and a rule in these instructions conflict (quote both), or when a finding shows design text that reads two ways (quote the text and both readings): put its id in blocked_by of every step it touches, so the owner hears at once. Give the question, your recommendation, the alternative and the cost of each in plain English.
 - Plan only what the design and scope ask for.

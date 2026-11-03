@@ -15,7 +15,7 @@ description: >-
   route. Attempts are judged on their findings, never by a counter: the planner or the
   specifier gets another attempt while the blocking findings include only ones no earlier
   attempt in this review was given; a blocking finding that comes back after an attempt
-  addressed it, with the same cause or target and the same basis, makes the call return
+  addressed it, with the same cause and basis or the same target and field, makes the call return
   refused at once and finish cancels with the blocking findings. A resumed call carries the
   findings already addressed by the call it resumes. A blocking decision (one a
   Plan or Spec step lists in blocked_by) stops the round as soon as its author writes it,
@@ -323,11 +323,12 @@ nodes:
                   properties:
                     author: { type: string, enum: [plan] }
                     target: { type: string }
+                    field: { type: string, enum: [check] }
                     cause: { type: string }
                     basis: { type: string, minLength: 1 }
                     severity: { type: string, enum: [blocking] }
                     design_it_in: { type: boolean }
-                  required: [author, target, cause, basis, severity, design_it_in]
+                  required: [author, target, field, cause, basis, severity, design_it_in]
             required: [findings]
 
         - id: prosecute
@@ -348,11 +349,12 @@ nodes:
                   properties:
                     author: { type: string, enum: [plan, spec] }
                     target: { type: string }
+                    field: { type: string, enum: [unit, paths, check, order, blocked_by, cites, step, before, file, shared, setup, assertion, whole] }
                     cause: { type: string }
                     basis: { type: string, minLength: 1 }
                     severity: { type: string, enum: [blocking, minor] }
                     design_it_in: { type: boolean }
-                  required: [author, target, cause, basis, severity, design_it_in]
+                  required: [author, target, field, cause, basis, severity, design_it_in]
             required: [verdict, findings]
 
         - id: spec
@@ -502,11 +504,12 @@ nodes:
                   properties:
                     author: { type: string, enum: [plan, spec] }
                     target: { type: string }
+                    field: { type: string, enum: [unit, paths, check, order, blocked_by, cites, step, before, file, shared, setup, assertion, whole] }
                     cause: { type: string }
                     basis: { type: string, minLength: 1 }
                     severity: { type: string, enum: [blocking, minor] }
                     design_it_in: { type: boolean }
-                  required: [author, target, cause, basis, severity, design_it_in]
+                  required: [author, target, field, cause, basis, severity, design_it_in]
             required: [verdict, findings]
 
         - id: round
@@ -553,6 +556,7 @@ nodes:
                   ($resolved.unresolved | map({
                     author: "plan",
                     target: .step,
+                    field: "cites",
                     cause: "\(.path):\(.line): \(.reason)",
                     basis: "the cite quotes `\(.quote)`, and no single line of \(.path) is that text",
                     severity: "minor",
@@ -587,7 +591,7 @@ nodes:
                   }
                 end
               | .fresh as $now
-              | ([$now[] as $f | $given[] | select((.cause == $f.cause or .target == $f.target) and .basis == $f.basis)] | length > 0) as $back
+              | ([$now[] as $f | $given[] | select((.cause == $f.cause and .basis == $f.basis) or (.target == $f.target and .field == $f.field))] | length > 0) as $back
               | if $back then .next = "refused"
                 elif .next == "plan" or .next == "spec" then .addressed = ($given + $now)
                 else . end
@@ -603,9 +607,10 @@ nodes:
                   properties:
                     author: { type: string }
                     target: { type: string }
+                    field: { type: string }
                     cause: { type: string }
                     basis: { type: string }
-                  required: [target, cause, basis]
+                  required: [target, field, cause, basis]
               plan: { type: object }
               spec: { type: [object, 'null'] }
               findings: { type: array, items: { type: object } }
