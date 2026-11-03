@@ -1,7 +1,7 @@
 exec-code: true
 fixture:
   expect: completed
-  reached: [read-request, planning__verdict]
+  reached: [read-request, planning__verdict, settled, planned]
   inputs: { request: docs/requests/x.md }
 read-request: "request text"
 plan:
@@ -20,5 +20,3 @@ planning__verdict: &verdict
   questions: []
   question: ""
   stopped: null
-settled: '{"verdict":"pass","plan":{"steps":[{"id":"c1","unit":"request","kind":"code","paths":["src/a.py"],"check":"make check-a","blocked_by":[]}],"decisions":[]},"spec":{"lines":[],"helpers":[],"steps":[],"decisions":[]},"findings":[],"decisions":[],"questions":[],"question":"","stopped":null,"recalled":true,"approval":{"state":"approved","text":"ok"},"key":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}'
-planned: *verdict

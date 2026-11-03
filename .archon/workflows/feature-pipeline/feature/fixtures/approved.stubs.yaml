@@ -1,9 +1,10 @@
 exec-code: true
 fixture:
   expect: completed
-  reached: [read-request, planning__verdict, gate, approval]
+  reached: [read-request, planning__verdict, settled, planned, gate, approval]
   inputs: { request: docs/requests/x.md }
   resolved-text-contains:
+    gate: "\"blocked_by\":[]"
     prosecute: "Design source: neither the run's checkout nor a ref: read it as given\n\nWhere this run runs. These facts are fixed. Never infer them from where a file does or does not resolve.\n- Land branch: \n- Land checkout: \n"
 read-request: "request text"
 plan:
@@ -24,5 +25,3 @@ planning__verdict: &verdict
   stopped: null
 gate: { decision: approve, text: "" }
 approval: ""
-settled: '{"verdict":"pass","plan":{"steps":[{"id":"c1","unit":"request","kind":"code","paths":["src/a.py"],"check":"make check-a","blocked_by":[]}],"decisions":[]},"spec":{"lines":[],"helpers":[],"steps":[],"decisions":[]},"findings":[],"decisions":[],"questions":[],"question":"","stopped":null,"recalled":false,"approval":{"state":"none","text":""},"key":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}'
-planned: *verdict

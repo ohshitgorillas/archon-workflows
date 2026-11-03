@@ -1,8 +1,10 @@
 exec-code: true
 fixture:
   expect: cancelled
-  reached: [read-request, planning__verdict, gate, approval, rejected]
+  reached: [read-request, planning__verdict, settled, planned, gate, approval, rejected]
   inputs: { request: docs/requests/x.md }
+  resolved-text-contains:
+    gate: "\"blocked_by\":[]"
 read-request: "request text"
 plan:
   steps: [{ id: c1, unit: request, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
@@ -22,5 +24,3 @@ planning__verdict: &verdict
   stopped: null
 gate: { decision: reject, text: "wrong scope" }
 approval: ""
-settled: '{"verdict":"pass","plan":{"steps":[{"id":"c1","unit":"request","kind":"code","paths":["src/a.py"],"check":"make check-a","blocked_by":[]}],"decisions":[]},"spec":{"lines":[],"helpers":[],"steps":[],"decisions":[]},"findings":[],"decisions":[],"questions":[],"question":"","stopped":null,"recalled":false,"approval":{"state":"none","text":""},"key":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}'
-planned: *verdict

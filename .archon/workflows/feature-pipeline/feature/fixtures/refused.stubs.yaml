@@ -1,7 +1,7 @@
 exec-code: true
 fixture:
   expect: cancelled
-  reached: [read-request, planning__verdict, refused]
+  reached: [read-request, planning__verdict, settled, planned, refused]
   inputs: { request: docs/requests/x.md }
   resolved-text-contains:
     refused: '"author":"plan"'
@@ -10,16 +10,3 @@ plan:
   steps: [{ id: c1, unit: request, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }]
   decisions: []
 prosecute: { verdict: fail, findings: [{ author: plan, target: c1, cause: x, basis: y, severity: blocking, design_it_in: false }] }
-settled: '{"verdict":"refused","plan":{"steps":[{"id":"c1","unit":"request","kind":"code","paths":["src/a.py"],"check":"make check-a","blocked_by":[]}],"decisions":[]},"spec":{},"findings":[{"author":"plan","target":"c1","cause":"x","basis":"y","severity":"blocking","design_it_in":false}],"decisions":[],"questions":[],"question":"","stopped":null,"recalled":false,"approval":{"state":"none","text":""},"key":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}'
-planned:
-  verdict: refused
-  plan: { steps: [{ id: c1, unit: request, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }], decisions: [] }
-  spec: {}
-  findings: [{ author: plan, target: c1, cause: x, basis: y, severity: blocking, design_it_in: false }]
-  decisions: []
-  questions: []
-  question: ""
-  stopped: null
-  recalled: false
-  approval: { state: none, text: "" }
-  key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef

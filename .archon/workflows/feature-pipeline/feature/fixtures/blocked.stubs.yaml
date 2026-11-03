@@ -1,27 +1,15 @@
 exec-code: true
 fixture:
   expect: completed
-  reached: [read-request, planning__verdict, escalate, gate, approval]
+  reached: [read-request, planning__verdict, settled, planned, escalate, gate, approval]
   inputs: { request: docs/requests/x.md }
   resolved-text-contains:
     escalate: "Decision d1: q Recommend: r. Alternative: a. Cost: c."
+    gate: "\"blocked_by\":[\"d1\"]"
 read-request: "request text"
 plan:
   steps: [{ id: c1, unit: request, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [d1] }]
   decisions: [{ id: d1, question: q, recommend: r, alternative: a, cost: c }]
-settled: '{"verdict":"blocked","plan":{"steps":[{"id":"c1","unit":"request","kind":"code","paths":["src/a.py"],"check":"make check-a","blocked_by":["d1"]}],"decisions":[{"id":"d1","question":"q","recommend":"r","alternative":"a","cost":"c"}]},"spec":{},"findings":[],"decisions":[{"id":"d1","question":"q","recommend":"r","alternative":"a","cost":"c"}],"questions":[{"id":"d1","question":"q","recommend":"r","alternative":"a","cost":"c"}],"question":"Decision d1: q Recommend: r. Alternative: a. Cost: c.","stopped":{"next":"blocked","cuts":0,"specs":0,"plan":{"steps":[{"id":"c1","unit":"request","kind":"code","paths":["src/a.py"],"check":"make check-a","blocked_by":["d1"]}],"decisions":[{"id":"d1","question":"q","recommend":"r","alternative":"a","cost":"c"}]},"spec":null,"findings":[],"questions":[{"id":"d1","question":"q","recommend":"r","alternative":"a","cost":"c"}],"resume":"plan","answers":[]},"recalled":false,"approval":{"state":"none","text":""},"key":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}'
 escalate: { text: "go with r" }
-planned:
-  verdict: pass
-  plan: { steps: [{ id: c1, unit: request, kind: code, paths: [src/a.py], check: "make check-a", blocked_by: [] }], decisions: [] }
-  spec: { lines: [], helpers: [], steps: [], decisions: [] }
-  findings: []
-  decisions: [{ id: d1, question: q, recommend: r, alternative: a, cost: c }]
-  questions: []
-  question: ""
-  stopped: null
-  recalled: false
-  approval: { state: none, text: "" }
-  key: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 gate: { decision: approve, text: "" }
 approval: ""
