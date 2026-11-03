@@ -1,9 +1,10 @@
 name: plan-review
 description: >-
   Building block, include only; not for a standalone run. One planning stage before any
-  build. First recall looks up the plan record for this design, scope and commit: a record
-  another run wrote, that passed review and that the owner has not rejected, is reused as
-  it stands, and no round or agent runs. Otherwise, strictly in order and starting from the
+  build. First recall looks up the plan record for this design and scope, on any commit: a
+  record another run wrote, that passed review, that the owner has not rejected, and none
+  of whose Plan or Spec paths changed since the commit it was written on, is reused as it
+  stands, and no round or agent runs. Otherwise, strictly in order and starting from the
   recalled record when there is one: the planner cuts the code steps from the Detective's
   file:line answers, a citation resolver checks and corrects any cite, a check probe reads
   every step's check against the run's checkout root and branch without running it, and the
@@ -90,12 +91,26 @@ nodes:
       root=$(git rev-parse --show-toplevel)
       branch=$(git symbolic-ref --short -q HEAD || echo "detached HEAD")
       head=$(git rev-parse HEAD)
-      key=$(jq -cn --arg design "$design" --arg design_blob "$blob" --arg scope "$scope" --arg head "$head" \
-        '{design: $design, design_blob: $design_blob, scope: $scope, head: $head}' | sha256sum | cut -d ' ' -f 1)
+      key=$(jq -cn --arg design "$design" --arg design_blob "$blob" --arg scope "$scope" \
+        '{design: $design, design_blob: $design_blob, scope: $scope}' | sha256sum | cut -d ' ' -f 1)
       file="$STATE_DIR/feature-pipeline/plans/$key.json"
       record=null
+      moved='[]'
       if [ -f "$file" ]; then
         record=$(cat "$file")
+        rhead=$(jq -r '.head // ""' "$file")
+        if [ "$rhead" != "$head" ]; then
+          named=$(jq -r '[.plan.steps[]?.paths[]?, .plan.steps[]?.cites[]?.path, .spec.lines[]?.file,
+            .spec.steps[]?.paths[]?, .spec.helpers[]?.path] | map(select(type == "string" and . != "")) | unique[]' "$file")
+          changed=""
+          if [ -z "$rhead" ] || ! changed=$(git diff --no-renames --name-only "$rhead" HEAD 2>/dev/null); then
+            changed=$named
+          fi
+          moved=$(jq -cn --rawfile n <(printf '%s' "$named") --rawfile c <(printf '%s' "$changed") '
+            ($c | split("\n") | map(select(. != ""))) as $c
+            | [$n | split("\n")[] | select(. != "") | . as $p
+               | select(any($c[]; . == $p or startswith($p + "/")))]')
+        fi
       fi
       resume=$INPUTS_RESUME
       answer=$INPUTS_ANSWER
@@ -109,9 +124,10 @@ nodes:
       fi
       jq -cn --arg key "$key" --arg design "$design" --arg design_blob "$blob" --arg scope "$scope" --arg head "$head" \
         --arg run "$WORKFLOW_ID" --slurpfile record <(printf '%s' "$record") --slurpfile stopped <(printf '%s' "$stopped") --arg answer "$answer" \
+        --slurpfile moved <(printf '%s' "$moved") \
         --arg read "$read" --arg from "$from" --arg root "$root" --arg branch "$branch" '
         def one($n): if length == 1 then .[0] else error("recall: \($n) is not one JSON value") end;
-        ($record | one("record")) as $record | ($stopped | one("stopped")) as $stopped |
+        ($record | one("record")) as $record | ($stopped | one("stopped")) as $stopped | ($moved | one("moved")) as $moved |
         (if $answer == "" then []
          else [{decisions: (($stopped // {}).questions // []), text: $answer}] end) as $given
         | ((($stopped // {}).answers // []) + (($record // {}).answers // []) + $given
@@ -122,6 +138,7 @@ nodes:
           design_blob: $design_blob,
           scope: $scope,
           head: $head,
+          moved: $moved,
           read: $read,
           from: $from,
           root: $root,
@@ -131,6 +148,7 @@ nodes:
                     and $record.verdict == "pass"
                     and $record.approval.state != "rejected"
                     and $record.run != $run
+                    and $moved == []
                  then "reuse" else "rounds" end),
           start: (if $stopped == null then "plan" else $stopped.resume end),
           seed: $stopped,
@@ -145,6 +163,7 @@ nodes:
         design_blob: { type: string }
         scope: { type: string }
         head: { type: string }
+        moved: { type: array, items: { type: string } }
         read: { type: string }
         from: { type: string }
         root: { type: string }
@@ -161,7 +180,7 @@ nodes:
               text: { type: string }
             required: [decisions, text]
         record: { type: [object, 'null'] }
-      required: [key, design, design_blob, scope, head, read, from, root, branch, next, start, seed, answers, record]
+      required: [key, design, design_blob, scope, head, moved, read, from, root, branch, next, start, seed, answers, record]
 
   - id: track
     command: track

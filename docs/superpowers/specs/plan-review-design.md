@@ -36,8 +36,9 @@ The block runs `recall`, then `rounds` only when `recall` finds no record to reu
 ```yaml
 - id: recall                        # bash + jq; the only reader of the plan record
   mutates_checkout: false
-  # computes the key from $INPUTS.design, $INPUTS.scope, `git hash-object` and `git rev-parse HEAD`,
-  # reads $STATE_DIR/feature-pipeline/plans/<key>.json when present, and sets next,
+  # computes the key from $INPUTS.design, $INPUTS.scope and `git hash-object`, never HEAD,
+  # reads $STATE_DIR/feature-pipeline/plans/<key>.json when present, lists moved paths against
+  # the record's head, and sets next,
   # all as feature-pipeline-finish-design.md's plan record states
   output_format: Recall             # schema in feature-pipeline-finish-design.md
 
@@ -299,7 +300,7 @@ These checks replace a fixture for every route that needs a second `rounds` iter
 | L7 Plan cap | the prosecutor fails the Plan three times | the round where `cuts` reaches 3 with `next` `plan` sets `next` to `refused`, no spec round follows, and `verdict` is `refused`. |
 | L8 Sub-agents | every call | `plan` calls `detective` and `spec` calls `examiner` through the `Agent` tool; the Examiner writes only under `$ARTIFACTS_DIR/.archon/scratch/spec/` and the run's checkout is unchanged. |
 | L9 Record written | every call | `keep` ran after `verdict`, and `$STATE_DIR/feature-pipeline/plans/<key>.json` for `recall`'s `key` holds that call's Result with `run` equal to the run's `$WORKFLOW_ID`. |
-| L10 Reuse | `recall` finds a record with `verdict` `pass`, approval not `rejected`, written by another run | `recall.next` is `reuse`, `rounds` and every body node were skipped, and `verdict` returns the record's Plan and Spec with `recalled: true`. |
+| L10 Reuse | `recall` finds a record with `verdict` `pass`, approval not `rejected`, written by another run, with `moved` empty, its `head` this commit or an earlier one | `recall.next` is `reuse`, `rounds` and every body node were skipped, and `verdict` returns the record's Plan and Spec with `recalled: true`. |
 | L11 Start from a record | `recall` finds a record it does not reuse | `recall.next` is `rounds`; the first plan round's Plan revises the record's Plan, and the first spec round's Spec revises the record's Spec. |
 
 ## Homes
