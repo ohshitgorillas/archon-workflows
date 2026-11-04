@@ -44,9 +44,8 @@ ROOT = _root()
 READ = _folders("FENCE_READ")
 WRITE = _folders("FENCE_WRITE")
 DENY = _folders("FENCE_DENY") + [(d,) for d in ALWAYS_DENY_WRITE]
-ROUNDS = _folders("FENCE_ROUNDS")
+ONCE = _folders("FENCE_ONCE")
 COPY = _folders("FENCE_COPY")
-ROUND_NAME = re.compile(r"\d+\.json")
 
 mcp = FastMCP("fence-files")
 
@@ -97,20 +96,9 @@ def _check_copy(path: str, parts: Parts) -> None:
         raise PermissionError(f"{path}: created only by copy_file (FENCE_COPY)")
 
 
-def _check_round(path: str, real: str, parts: Parts, delete: bool = False) -> None:
-    name = os.path.basename(real)
-    if not ROUND_NAME.fullmatch(name) or not any(_inside(parts, f) for f in ROUNDS):
-        return
-    if delete:
-        raise PermissionError(f"{path}: round files are never deleted (FENCE_ROUNDS)")
-    own = int(name[:-5])
-    folder = os.path.dirname(real)
-    if os.path.isdir(folder) and any(
-        ROUND_NAME.fullmatch(n) and int(n[:-5]) > own for n in os.listdir(folder)
-    ):
-        raise PermissionError(
-            f"{path}: a newer round exists beside it; frozen by FENCE_ROUNDS"
-        )
+def _check_once(path: str, parts: Parts) -> None:
+    if any(_inside(parts, f) for f in ONCE):
+        raise PermissionError(f"{path}: files here are written once (FENCE_ONCE)")
 
 
 def _visible(parts: Parts) -> bool:
@@ -225,7 +213,8 @@ def write_file(path: str, content: str) -> str:
     real, parts = _resolve(path)
     _check_write(path, parts)
     _check_copy(path, parts)
-    _check_round(path, real, parts)
+    if os.path.lexists(real):
+        _check_once(path, parts)
     os.makedirs(os.path.dirname(real), exist_ok=True)
     with open(real, "w", encoding="utf-8", newline="") as fh:
         fh.write(content)
@@ -240,7 +229,7 @@ def edit_file(path: str, old: str, new: str, replace_all: bool = False) -> str:
     _check_read(path, parts)
     _check_write(path, parts)
     _check_copy(path, parts)
-    _check_round(path, real, parts)
+    _check_once(path, parts)
     with open(real, encoding="utf-8", newline="") as fh:
         text = fh.read()
     count = text.count(old)
@@ -265,7 +254,6 @@ def copy_file(src: str, dst: str) -> str:
         raise FileExistsError(f"{dst}: destination already exists")
     if not os.path.isfile(src_real):
         raise ValueError(f"{src}: not a file")
-    _check_round(dst, dst_real, dst_parts)
     os.makedirs(os.path.dirname(dst_real), exist_ok=True)
     shutil.copyfile(src_real, dst_real)
     return f"copied {_rel(src_real)} to {_rel(dst_real)}"
@@ -276,7 +264,7 @@ def delete_file(path: str) -> str:
     """Delete a file (not a directory). Needs a writable path."""
     real, parts = _resolve(path)
     _check_write(path, parts)
-    _check_round(path, real, parts, delete=True)
+    _check_once(path, parts)
     if not os.path.isfile(real):
         raise ValueError(f"{path}: not a file")
     os.remove(real)

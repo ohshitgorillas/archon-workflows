@@ -4,7 +4,7 @@ from pathlib import Path
 SRC = Path(__file__).with_name("files.py")
 
 
-def load(monkeypatch, root, read="", write="", deny="", rounds="", copy=""):
+def load(monkeypatch, root, read="", write="", deny="", once="", copy=""):
     if root is None:
         monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
     else:
@@ -12,7 +12,7 @@ def load(monkeypatch, root, read="", write="", deny="", rounds="", copy=""):
     monkeypatch.setenv("FENCE_READ", read)
     monkeypatch.setenv("FENCE_WRITE", write)
     monkeypatch.setenv("FENCE_DENY", deny)
-    monkeypatch.setenv("FENCE_ROUNDS", rounds)
+    monkeypatch.setenv("FENCE_ONCE", once)
     monkeypatch.setenv("FENCE_COPY", copy)
     spec = importlib.util.spec_from_file_location("fence_files_under_test", SRC)
     mod = importlib.util.module_from_spec(spec)

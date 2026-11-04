@@ -119,69 +119,54 @@ def test_copy_refuses_existing_destination(monkeypatch, tmp_path):
         f.copy_file("plans/plan.json", "plans/approved/plan.json")
 
 
-ROUND_TREE = (
-    "rv/p/1.json",
-    "rv/p/2.json",
-    "rv/p/approved.json",
-    "rv/n/9.json",
-    "rv/n/10.json",
-    "rv/a/1.json",
-    "rv/b/2.json",
-    "out/1.json",
-    "out/2.json",
-)
+def once_fence(monkeypatch, tmp_path):
+    put(tmp_path, "reviews/old.md", "old\n")
+    put(tmp_path, "src/old.md", "old\n")
+    return load(
+        monkeypatch, tmp_path, read=".", write="reviews:src", once="reviews"
+    )
 
 
-def rounds_fence(monkeypatch, tmp_path):
-    for rel in ROUND_TREE:
-        put(tmp_path, rel, "x\n")
-    return load(monkeypatch, tmp_path, read="rv:out", write="rv:out", rounds="rv")
+def test_write_creates_new_path_inside_once_folder(monkeypatch, tmp_path):
+    f = once_fence(monkeypatch, tmp_path)
+    f.write_file("reviews/new.md", "new\n")
+    assert (tmp_path / "reviews/new.md").read_text() == "new\n"
 
 
-@pytest.mark.parametrize(
-    "target", ["rv/p/2.json", "rv/a/1.json", "out/1.json", "rv/p/approved.json"]
-)
+def test_write_refuses_existing_path_inside_once_folder(monkeypatch, tmp_path):
+    f = once_fence(monkeypatch, tmp_path)
+    with pytest.raises(PermissionError, match="FENCE_ONCE"):
+        f.write_file("reviews/old.md", "new\n")
 
 
-def test_edit_allowed_unless_a_newer_round_sits_beside_the_file(
-    monkeypatch, tmp_path, target
-):
-    f = rounds_fence(monkeypatch, tmp_path)
-    f.edit_file(target, "x", "y")
-    assert (tmp_path / target).read_text() == "y\n"
+def test_edit_refused_inside_once_folder(monkeypatch, tmp_path):
+    f = once_fence(monkeypatch, tmp_path)
+    with pytest.raises(PermissionError, match="FENCE_ONCE"):
+        f.edit_file("reviews/old.md", "old", "new")
 
 
-@pytest.mark.parametrize(
-    ("tool", "args"),
-    [
-        ("write_file", ("rv/p/1.json", "y\n")),
-        ("edit_file", ("rv/p/1.json", "x", "y")),
-        ("edit_file", ("rv/n/9.json", "x", "y")),
-        ("delete_file", ("rv/p/1.json",)),
-        ("delete_file", ("rv/p/2.json",)),
-        ("copy_file", ("rv/a/1.json", "rv/p/0.json")),
-        ("copy_file", ("rv/a/1.json", "rv/n/5.json")),
-    ],
-)
+def test_delete_refused_inside_once_folder(monkeypatch, tmp_path):
+    f = once_fence(monkeypatch, tmp_path)
+    with pytest.raises(PermissionError, match="FENCE_ONCE"):
+        f.delete_file("reviews/old.md")
 
 
-def test_round_file_refuses_change_once_superseded_and_any_delete(
-    monkeypatch, tmp_path, tool, args
-):
-    f = rounds_fence(monkeypatch, tmp_path)
-    with pytest.raises(PermissionError, match="FENCE_ROUNDS"):
-        getattr(f, tool)(*args)
+def test_write_overwrites_existing_path_outside_once_folder(monkeypatch, tmp_path):
+    f = once_fence(monkeypatch, tmp_path)
+    f.write_file("src/old.md", "new\n")
+    assert (tmp_path / "src/old.md").read_text() == "new\n"
 
 
-@pytest.mark.parametrize("target", ["rv/p/3.json", "rv/p/notes.json", "rv/n/11.json"])
+def test_edit_changes_path_outside_once_folder(monkeypatch, tmp_path):
+    f = once_fence(monkeypatch, tmp_path)
+    f.edit_file("src/old.md", "old", "new")
+    assert (tmp_path / "src/old.md").read_text() == "new\n"
 
 
-def test_copy_into_round_folder_allowed_above_every_round_or_off_pattern(
-    monkeypatch, tmp_path, target
-):
-    f = rounds_fence(monkeypatch, tmp_path)
-    f.copy_file("rv/a/1.json", target)
-    assert (tmp_path / target).read_text() == "x\n"
+def test_delete_removes_path_outside_once_folder(monkeypatch, tmp_path):
+    f = once_fence(monkeypatch, tmp_path)
+    f.delete_file("src/old.md")
+    assert not (tmp_path / "src/old.md").exists()
 
 
 @pytest.mark.parametrize(
