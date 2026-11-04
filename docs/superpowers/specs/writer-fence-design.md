@@ -114,7 +114,9 @@ Each server finds its script through `PACK_DIR`, the checks server its command t
 
 No other folder is named in any config. `.archon/`, `.claude/` and `.git/` are refused by `files.py` itself and appear in no config. Each `finish` resolver config carries the `FENCE_*` values of the role that writes its folder: `resolver-tests.json` the test writer's, `resolver.json` the implementer's.
 
-Unmeasured, shown by the first live run: whether Claude Code passes `CLAUDE_PROJECT_DIR`, `PATH` and the rest of the environment the test command needs to a stdio server given an `env` block; whether a session resumed from `brief` starts the node's servers; whether an inline sub-agent reaches its node's MCP servers; whether the `examiner` keeps built-in tools its node's `allowed_tools` does not list; whether the run config layer's `env:` reaches the Claude provider's process environment, where Archon expands an MCP config's `${...}`, or only the environment it hands Claude Code (unreached, the `:?` guards fail the node's server start).
+Unmeasured, shown by the first live run: whether Claude Code passes `CLAUDE_PROJECT_DIR`, `PATH` and the rest of the environment the test command needs to a stdio server given an `env` block; whether a session resumed from `brief` starts the node's servers; whether an inline sub-agent reaches its node's MCP servers; whether the `examiner` keeps built-in tools its node's `allowed_tools` does not list.
+
+Read from source, 2026-11-04: on host execution, the run config layer's `env:` reaches the Claude provider's process environment, where the provider expands an MCP config's `${...}`. Archon spawns the provider process once per query with `cx(r)`, which merges the per-request env over `process.env` (`/usr/local/bin/archon` offset 81860837; spawn at 82268170); the provider's `wb()` expands from its own `process.env`. In container execution the provider gets the ambient env only, so the three keys would not reach the fence servers; this design assumes host execution, which `~/.archon/config.yaml` selects by setting no container.
 
 ### `.archon/workflows/feature-pipeline/plan-review/`
 
