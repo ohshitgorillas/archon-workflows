@@ -1,6 +1,7 @@
 import asyncio
 import importlib.util
 import os
+import re
 import time
 from pathlib import Path
 
@@ -30,43 +31,70 @@ def run(monkeypatch, root, command, timeout=None):
     return asyncio.run(module.run_tests())
 
 
-def test_passing(monkeypatch, tmp_path):
-    result = run(monkeypatch, tmp_path, "echo hello")
-    first, _, rest = result.partition("\n")
-    assert first.startswith("exit=0 timed_out=false seconds=")
-    assert rest == "hello"
+def header(result):
+    return dict(field.split("=", 1) for field in result.partition("\n")[0].split())
 
 
-def test_failing_exit_code(monkeypatch, tmp_path):
-    result = run(monkeypatch, tmp_path, "echo bad; exit 7")
-    assert result.startswith("exit=7 timed_out=false")
-    assert "bad" in result
+def body(result):
+    return result.partition("\n")[2]
+
+
+def startup_exit(monkeypatch, tmp_path, root="dir", command="true", timeout=None):
+    (tmp_path / "f.txt").write_text("x")
+    target = {
+        "dir": tmp_path,
+        "unset": None,
+        "missing": tmp_path / "nope",
+        "file": tmp_path / "f.txt",
+    }
+    with pytest.raises(SystemExit) as exc:
+        load(monkeypatch, target[root], command, timeout)
+    return exc.value.code
+
+
+BAD_TIMEOUTS = ["abc", "0", "-5", "1.5", ""]
+BAD_STARTUPS = [
+    pytest.param({"root": "unset"}, "CLAUDE_PROJECT_DIR", id="root-unset"),
+    pytest.param({"root": "missing"}, "CLAUDE_PROJECT_DIR", id="root-missing"),
+    pytest.param({"root": "file"}, "CLAUDE_PROJECT_DIR", id="root-file"),
+    pytest.param({"command": "  "}, "FENCE_TEST_COMMAND", id="command-blank"),
+] + [
+    pytest.param({"timeout": bad}, "FENCE_TEST_TIMEOUT", id=f"timeout-{bad!r}")
+    for bad in BAD_TIMEOUTS
+]
+
+
+@pytest.mark.parametrize(("command", "code"), [("true", "0"), ("exit 7", "7")])
+def test_reports_command_exit_code(monkeypatch, tmp_path, command, code):
+    assert header(run(monkeypatch, tmp_path, command))["exit"] == code
+
+
+def test_finished_run_reports_not_timed_out(monkeypatch, tmp_path):
+    assert header(run(monkeypatch, tmp_path, "true"))["timed_out"] == "false"
+
+
+@pytest.mark.parametrize("command", ["echo hello", "echo hello >&2"], ids=["stdout", "stderr"])
+def test_returns_command_output(monkeypatch, tmp_path, command):
+    assert body(run(monkeypatch, tmp_path, command)) == "hello"
 
 
 def test_runs_in_root(monkeypatch, tmp_path):
-    result = run(monkeypatch, tmp_path, "pwd")
-    assert result.splitlines()[1] == os.path.realpath(tmp_path)
+    assert body(run(monkeypatch, tmp_path, "pwd")) == os.path.realpath(tmp_path)
 
 
-def test_stderr_captured(monkeypatch, tmp_path):
-    result = run(monkeypatch, tmp_path, "echo oops >&2")
-    assert "oops" in result
+def test_long_output_keeps_last_200_lines(monkeypatch, tmp_path):
+    lines = body(run(monkeypatch, tmp_path, "seq 1 1000")).splitlines()
+    assert [n for n in lines if n.isdigit()] == [str(i) for i in range(801, 1001)]
 
 
-def test_long_output_cut_to_tail(monkeypatch, tmp_path):
-    result = run(monkeypatch, tmp_path, "seq 1 1000")
-    lines = result.splitlines()
-    assert lines[1] == "[... 800 earlier lines cut]"
-    assert lines[2] == "801"
-    assert lines[-1] == "1000"
-    assert len(lines) == 2 + 200
+def test_long_output_reports_cut_line_count(monkeypatch, tmp_path):
+    first = body(run(monkeypatch, tmp_path, "seq 1 1000")).splitlines()[0]
+    assert re.findall(r"\d+", first) == ["800"]
 
 
-def test_long_output_cut_by_chars(monkeypatch, tmp_path):
-    result = run(monkeypatch, tmp_path, "for i in 1 2 3 4 5; do head -c 10000 /dev/zero | tr '\\0' x; echo; done")
-    body = result.partition("\n")[2]
-    assert "earlier lines cut]" in body
-    assert len(body.partition("\n")[2]) <= 20000
+def test_long_output_keeps_last_20000_chars(monkeypatch, tmp_path):
+    result = run(monkeypatch, tmp_path, "head -c 50000 /dev/zero | tr '\\0' x")
+    assert body(result) == "x" * 20000
 
 
 def test_timeout_kills_group(monkeypatch, tmp_path):
@@ -85,22 +113,12 @@ def test_timeout_kills_group(monkeypatch, tmp_path):
     pytest.fail("process group still alive")
 
 
-def test_missing_project_dir(monkeypatch):
-    with pytest.raises(SystemExit) as exc:
-        load(monkeypatch, None, "true")
-    assert exc.value.code != 0
+@pytest.mark.parametrize(("env", "name"), BAD_STARTUPS)
+def test_startup_exits_nonzero_on_bad_environment(monkeypatch, tmp_path, env, name):
+    assert startup_exit(monkeypatch, tmp_path, **env) in range(1, 256)
 
 
-def test_empty_command(monkeypatch, tmp_path, capsys):
-    with pytest.raises(SystemExit) as exc:
-        load(monkeypatch, tmp_path, "  ")
-    assert exc.value.code != 0
-    assert "FENCE_TEST_COMMAND" in capsys.readouterr().err
-
-
-@pytest.mark.parametrize("bad", ["abc", "0", "-5", "1.5", ""])
-def test_bad_timeout(monkeypatch, tmp_path, capsys, bad):
-    with pytest.raises(SystemExit) as exc:
-        load(monkeypatch, tmp_path, "true", bad)
-    assert exc.value.code != 0
-    assert "FENCE_TEST_TIMEOUT" in capsys.readouterr().err
+@pytest.mark.parametrize(("env", "name"), BAD_STARTUPS)
+def test_startup_error_names_offending_variable(monkeypatch, tmp_path, capsys, env, name):
+    startup_exit(monkeypatch, tmp_path, **env)
+    assert name in capsys.readouterr().err
