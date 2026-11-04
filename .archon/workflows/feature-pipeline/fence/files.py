@@ -45,6 +45,7 @@ READ = _folders("FENCE_READ")
 WRITE = _folders("FENCE_WRITE")
 DENY = _folders("FENCE_DENY") + [(d,) for d in ALWAYS_DENY_WRITE]
 ROUNDS = _folders("FENCE_ROUNDS")
+COPY = _folders("FENCE_COPY")
 ROUND_NAME = re.compile(r"\d+\.json")
 
 mcp = FastMCP("fence-files")
@@ -89,6 +90,11 @@ def _check_write(path: str, parts: Parts) -> None:
         raise PermissionError(
             f"{path}: not inside any FENCE_WRITE folder (allowed: {rules})"
         )
+
+
+def _check_copy(path: str, parts: Parts) -> None:
+    if any(_inside(parts, f) for f in COPY):
+        raise PermissionError(f"{path}: created only by copy_file (FENCE_COPY)")
 
 
 def _check_round(path: str, real: str, parts: Parts, delete: bool = False) -> None:
@@ -218,6 +224,7 @@ def write_file(path: str, content: str) -> str:
     """Write a file, creating parent folders. Needs a writable path."""
     real, parts = _resolve(path)
     _check_write(path, parts)
+    _check_copy(path, parts)
     _check_round(path, real, parts)
     os.makedirs(os.path.dirname(real), exist_ok=True)
     with open(real, "w", encoding="utf-8", newline="") as fh:
@@ -232,6 +239,7 @@ def edit_file(path: str, old: str, new: str, replace_all: bool = False) -> str:
     real, parts = _resolve(path)
     _check_read(path, parts)
     _check_write(path, parts)
+    _check_copy(path, parts)
     _check_round(path, real, parts)
     with open(real, encoding="utf-8", newline="") as fh:
         text = fh.read()
