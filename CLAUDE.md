@@ -5,3 +5,4 @@
 **3. Token waste is a defect.** An approach, fix, node or rule that spends tokens on work the sequence does not need is a defect, however correct the rest of the file.
 **4. A stop on a non-issue is a defect.** An approach, fix, node, gate or check that lets the sequence stop over a technicality or a non-issue is a defect, however correct the rest of the file.
 **5. One such defect condemns the whole file.** The owner removes that file from the drive and from git history, whatever else it holds. Write every file so that no rule of kind 3 or 4 lives in it.
+**6. Tests follow `docs/testing.md`.** Read it before writing or changing any test or workflow fixture.
