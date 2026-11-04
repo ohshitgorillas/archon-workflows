@@ -8,6 +8,7 @@ import fnmatch
 import glob as globmod
 import os
 import re
+import shutil
 import sys
 
 from mcp.server.fastmcp import FastMCP
@@ -222,6 +223,21 @@ def edit_file(path: str, old: str, new: str, replace_all: bool = False) -> str:
     with open(real, "w", encoding="utf-8", newline="") as fh:
         fh.write(text.replace(old, new))
     return f"edited {_rel(real)} ({count} replacement{'s' if count > 1 else ''})"
+
+
+@mcp.tool()
+def copy_file(src: str, dst: str) -> str:
+    """Copy a file, creating parent folders. Needs a readable `src` and a
+    writable `dst`; an existing `dst` is overwritten."""
+    src_real, src_parts = _resolve(src)
+    _check_read(src, src_parts)
+    dst_real, dst_parts = _resolve(dst)
+    _check_write(dst, dst_parts)
+    if not os.path.isfile(src_real):
+        raise ValueError(f"{src}: not a file")
+    os.makedirs(os.path.dirname(dst_real), exist_ok=True)
+    shutil.copyfile(src_real, dst_real)
+    return f"copied {_rel(src_real)} to {_rel(dst_real)}"
 
 
 @mcp.tool()

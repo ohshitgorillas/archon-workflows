@@ -191,6 +191,49 @@ def test_edit_needs_read_and_write(monkeypatch, tmp_path):
         g.edit_file("src/a.txt", "a", "b")
 
 
+def test_copy_gives_destination_the_source_content(monkeypatch, tmp_path):
+    put(tmp_path, "plans/plan.json", "first\n")
+    (tmp_path / "plans/approved").mkdir()
+    f = load(monkeypatch, tmp_path, read="plans", write="plans/approved")
+    f.copy_file("plans/plan.json", "plans/approved/plan.json")
+    assert (tmp_path / "plans/approved/plan.json").read_text() == "first\n"
+
+
+def test_copy_creates_missing_destination_folders(monkeypatch, tmp_path):
+    put(tmp_path, "plans/plan.json", "first\n")
+    f = load(monkeypatch, tmp_path, read="plans", write="plans/approved")
+    f.copy_file("plans/plan.json", "plans/approved/round/plan.json")
+    assert (tmp_path / "plans/approved/round/plan.json").read_text() == "first\n"
+
+
+def test_copy_overwrites_existing_destination(monkeypatch, tmp_path):
+    put(tmp_path, "plans/plan.json", "second\n")
+    put(tmp_path, "plans/approved/plan.json", "first\n")
+    f = load(monkeypatch, tmp_path, read="plans", write="plans/approved")
+    f.copy_file("plans/plan.json", "plans/approved/plan.json")
+    assert (tmp_path / "plans/approved/plan.json").read_text() == "second\n"
+
+
+@pytest.mark.parametrize(
+    ("read", "write", "refused"),
+    [("out", "out", "FENCE_READ"), ("src", "", "FENCE_WRITE")],
+)
+def test_copy_refuses_unreadable_source_or_unwritable_destination(
+    monkeypatch, tmp_path, read, write, refused
+):
+    put(tmp_path, "src/a.txt")
+    f = load(monkeypatch, tmp_path, read=read, write=write)
+    with pytest.raises(PermissionError, match=refused):
+        f.copy_file("src/a.txt", "out/a.txt")
+
+
+def test_copy_refuses_directory_source(monkeypatch, tmp_path):
+    (tmp_path / "src/d").mkdir(parents=True)
+    f = load(monkeypatch, tmp_path, read="src", write="out")
+    with pytest.raises(ValueError):
+        f.copy_file("src/d", "out/d")
+
+
 def test_delete_file(monkeypatch, tmp_path):
     put(tmp_path, "out/a.txt")
     (tmp_path / "out/d").mkdir()
