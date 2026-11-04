@@ -60,11 +60,12 @@ Each server finds its script through `PACK_DIR`, and the checks server its comma
 | `plan-review/.archon/feature-pipeline-fence/arbiter.json` | `arbitrate` | files | `specs:tests:plans/approved` | `specs/approved` | `""` |
 | `build-loop/.archon/feature-pipeline-fence/test-writer.json` | `tests` | files, checks | `specs/approved:tests` | `tests` | `""` |
 | `build-loop/.archon/feature-pipeline-fence/implementer.json` | `implement` | files, checks | `.` | `.` | `tests:plans/approved:specs/approved` |
-| `finish/.archon/feature-pipeline-fence/resolver.json` | `resolve` | files | `.` | `.` | `""` |
+| `finish/.archon/feature-pipeline-fence/resolver-tests.json` | `resolvetests` | files | `specs/approved:tests` | `tests` | `""` |
+| `finish/.archon/feature-pipeline-fence/resolver-plans.json` | `resolveplans` | files | `.` | `plans/approved` | `""` |
+| `finish/.archon/feature-pipeline-fence/resolver-specs.json` | `resolvespecs` | files | `specs:tests:plans/approved` | `specs/approved` | `""` |
+| `finish/.archon/feature-pipeline-fence/resolver.json` | `resolve` | files | `.` | `.` | `tests:plans/approved:specs/approved` |
 
-No other folder is named in any config. `.archon/`, `.claude/` and `.git/` are refused by `files.py` itself and appear in no config.
-
-The fence binds the agents' tool calls. Code a writer writes runs outside it, under `check` and `run_tests`.
+No other folder is named in any config. `.archon/`, `.claude/` and `.git/` are refused by `files.py` itself and appear in no config. Each `finish` resolver config carries the `FENCE_*` values of the role that writes its folder: `resolver-tests.json` the test writer's, `resolver-plans.json` the prosecutor's, `resolver-specs.json` the arbiter's, `resolver.json` the implementer's.
 
 Whether Claude Code passes `CLAUDE_PROJECT_DIR`, `PATH` and the rest of the environment the test command needs to a stdio server given an `env` block, and whether a session resumed from `brief` starts the node's servers, are unmeasured; the first live run shows both.
 
@@ -156,13 +157,46 @@ kind: test | code | null    # the kind of the step in `next`; null when next is 
 
 ### `.archon/workflows/feature-pipeline/finish/`
 
+A sync conflict is fixed by the resolver whose fence writes the conflicted path's folder. Four resolver nodes replace the one `resolve`, all `context: fresh`, `allowed_tools: []`, with `resolve`'s output format `{ resolved: boolean, reason: string }`.
+
 ```yaml
-- id: resolve       # unchanged but for its tools
+# finish.yaml, cycle body
+- id: sync          # as today, plus four outputs splitting `paths`, one path per line:
+                    # tests (under tests/), plans (under plans/approved/),
+                    # specs (under specs/approved/), other (every other conflicted path)
+- id: resolvespecs  # commands/resolve-specs.md, carries $sync.output.specs
+  depends_on: [sync]
+  when: "$sync.output.specs != ''"
+  allowed_tools: []
+  mcp: .archon/feature-pipeline-fence/resolver-specs.json
+- id: resolveplans  # commands/resolve-plans.md, carries $sync.output.plans
+  depends_on: [sync]
+  when: "$sync.output.plans != ''"
+  allowed_tools: []
+  mcp: .archon/feature-pipeline-fence/resolver-plans.json
+- id: resolve       # commands/resolve.md, carries $sync.output.other
+  depends_on: [sync]
+  when: "$sync.output.other != ''"
   allowed_tools: []
   mcp: .archon/feature-pipeline-fence/resolver.json
+- id: resolvetests  # test writer as resolver; commands/resolve-tests.md
+  depends_on: [sync, resolvespecs]
+  trigger_rule: none_failed_min_one_success
+  when: "$sync.output.tests != ''"
+  allowed_tools: []
+  mcp: .archon/feature-pipeline-fence/resolver-tests.json
+  settingSources: []
+- id: merge         # as today, but resolved is true only when every resolver that ran
+                    # returned resolved: true (a skipped one reads ''), and reason joins
+                    # each resolver's reason
+  depends_on: [resolvetests, resolveplans, resolvespecs, resolve]
+  trigger_rule: none_failed_min_one_success
 ```
 
-`commands/resolve.md` names the `files` tools in place of `Read`, `Edit`, `Grep` and `Glob`.
+- `commands/resolve.md`, `commands/resolve-plans.md` and `commands/resolve-specs.md` are today's `resolve.md`, each listing its own `$sync.output.<folder>` paths, naming the `files` tools in place of `Read`, `Edit`, `Grep` and `Glob`, and resolving from the two sides and what its fence reads.
+- `commands/resolve-tests.md` holds no `$` reference and nothing from the lead or any other node, and the node loads no setting sources. The resolver finds the conflicted files with the `files` `grep` for marker lines under `tests/`, resolves each block from the two sides and `specs/approved/` alone, and returns `resolved` and `reason` as `resolve` does. A block `specs/approved/` does not settle is left.
+- `resolvetests` runs after `resolvespecs`, so it reads `specs/approved/` with its conflicts resolved.
+- `unmerged` is unchanged: a marker left in any path, `.archon/`, `.claude/` and `.git/` included, ends the run through its cancel.
 
 ## Homes
 
@@ -172,10 +206,11 @@ kind: test | code | null    # the kind of the step in `next`; null when next is 
 | An agent's reads of the checkout, on a fenced node | the same config's `FENCE_READ` | Built-in `Read`, `Grep` or `Glob` on a fenced node. |
 | A writer's test runs | `fence/checks.py`'s `run_tests`, on the command in `TEST_COMMAND` | Built-in `Bash` on a writer; a test command in a prompt or config. |
 | Locating the fence scripts | `PACK_DIR` in each config's `env`, read by `sh -c` with the `:?` guard | A pack path literal in a config, a YAML file or a prompt; a server started from the checkout. |
-| Fence config location | `<workflow>/.archon/feature-pipeline-fence/<role>.json`, named by `mcp: .archon/feature-pipeline-fence/<role>.json` | A config path whose checkout match lies outside `.archon/`; a config file anywhere in the checkout; one config copied into two workflow folders. |
-| Pack code | the "Pack code" row of `feature-pipeline-finish-design.md`, plus `fence/files.py`, `fence/checks.py`, their tests, the five fence configs, the `mcp:` paths and `build-loop`'s `publish` | Any other MCP server, script, config or bash job. |
+| Fence config location | `<workflow>/.archon/feature-pipeline-fence/<role>.json`, named by `mcp: .archon/feature-pipeline-fence/<role>.json` | A config path whose checkout match lies outside `.archon/`; a config file anywhere in the checkout; one config copied into two workflow folders; a `finish` resolver config whose `FENCE_*` differ from the role's row it carries. |
+| Who fixes a sync conflict | the `finish` resolver whose fence writes the path's folder, picked by `sync`'s `tests`, `plans`, `specs` and `other` outputs | A resolver given a path outside its folder; one resolver for every folder; a conflict under `tests/` fixed by any node but `resolvetests`. |
+| Pack code | the "Pack code" row of `feature-pipeline-finish-design.md`, plus `fence/files.py`, `fence/checks.py`, their tests, the eight fence configs, the `mcp:` paths and `build-loop`'s `publish` | Any other MCP server, script, config or bash job. |
 | A step's check and committed paths | the step in `$INPUTS.plan` or `$INPUTS.spec`, looked up by the writer's `step_id` in `check` and `commit` | A writer's output carrying a check or paths; `check` running any other command. |
-| The test writer's direction | `specs/approved/spec.json`, written only by `publish` from `$INPUTS.spec` | A `$` reference in `commands/tests.md`; a setting source on `tests`; any other file in `specs/approved/` read by the test writer. |
+| The test writers' direction | `specs/approved/`: for `tests`, its `spec.json`, written only by `publish` from `$INPUTS.spec`; for `resolvetests`, the folder as `resolvespecs` leaves it | A `$` reference, or anything from the lead or another node, in `commands/tests.md` or `commands/resolve-tests.md`; a setting source on `tests` or `resolvetests`; any file in `specs/approved/` but `spec.json` read by `tests`. |
 | Which writer runs | `tests`' and `implement`'s `when:`, on `review`'s `kind` and, on iteration 1, `publish`'s `first` | A writer choosing between test and code steps; a step kind decided anywhere else. |
 | Test-step order | the Spec's `steps` order, written by the specifier and checked by the arbiter | A test writer told which step to build; a test step built out of Spec order. |
 | Hand-off between nodes | as in `feature-pipeline-finish-design.md`, plus `specs/approved/spec.json` from `publish` to `tests` | Any other file written by one node for another in the same run. |
@@ -184,17 +219,10 @@ kind: test | code | null    # the kind of the step in `next`; null when next is 
 ## Order
 
 1. `architect`: `docs/superpowers/specs/workflow-builder-design.md`: the roster stub's MCP-server line and the "Pack code" row admit `fence/files.py`, `fence/checks.py` and the fence configs as this design places them, pointed at `docs/superpowers/specs/writer-fence-design.md`.
-2. `architect`: `docs/superpowers/specs/feature-pipeline-finish-design.md`: the Modules preamble (bash jobs, the bash stub list with `publish`, script files), the build-loop module, the `prosecute`, `arbitrate`, `spec` and examiner lines of the plan-review module, and the "Pack code", "Writes outside a step", "Hand-off between nodes" and "Checking the pack" rows, stated as this design holds them.
+2. `architect`: `docs/superpowers/specs/feature-pipeline-finish-design.md`: the Modules preamble (bash jobs, the bash stub list with `publish`, script files), the build-loop module, the `prosecute`, `arbitrate`, `spec` and examiner lines of the plan-review module, the finish module's `sync`, `resolve` and `merge` lines, its sync-conflict paragraph and its `resolved` and `unresolved` fixture lines, and the "Pack code", "Writes outside a step", "Hand-off between nodes" and "Checking the pack" rows, stated as this design holds them.
 3. `role-author`: `~/.claude/agents/workflow-builder.md`: `mcp:` paths under `.archon/feature-pipeline-fence/` and the fence config files in each workflow folder admitted; `fence/` left unwritable.
 4. `workflow-builder`: `.archon/workflows/feature-pipeline/build-loop/build-loop.yaml`, `.archon/workflows/feature-pipeline/build-loop/commands/tests.md`, `.archon/workflows/feature-pipeline/build-loop/commands/implement.md`, `.archon/workflows/feature-pipeline/build-loop/commands/review.md`, `.archon/workflows/feature-pipeline/build-loop/commands/write.md` (removed), `.archon/workflows/feature-pipeline/build-loop/.archon/feature-pipeline-fence/test-writer.json`, `.archon/workflows/feature-pipeline/build-loop/.archon/feature-pipeline-fence/implementer.json`, `.archon/workflows/feature-pipeline/build-loop/fixtures/*.stubs.yaml`, `.archon/workflows/feature-pipeline/finish/fixtures/*.stubs.yaml`: `publish`, the two writers, `check` and `commit` reading the step from the inputs, `review`'s `kind`; every fixture stubbing `publish`, `tests` and `implement` as it reaches them, with a fixture whose first step is a test step and one whose first step is a code step.
 5. `workflow-builder`: `.archon/workflows/feature-pipeline/plan-review/plan-review.yaml`, `.archon/workflows/feature-pipeline/plan-review/commands/prosecute.md`, `.archon/workflows/feature-pipeline/plan-review/commands/arbitrate.md`, `.archon/workflows/feature-pipeline/plan-review/commands/spec.md`, `.archon/workflows/feature-pipeline/plan-review/.archon/feature-pipeline-fence/prosecutor.json`, `.archon/workflows/feature-pipeline/plan-review/.archon/feature-pipeline-fence/arbiter.json`: `prosecute` and `arbitrate` on their configs; the Spec's test steps in build order, checked by the arbiter.
-6. `workflow-builder`: `.archon/workflows/feature-pipeline/finish/finish.yaml`, `.archon/workflows/feature-pipeline/finish/commands/resolve.md`, `.archon/workflows/feature-pipeline/finish/.archon/feature-pipeline-fence/resolver.json`: `resolve` on its config.
+6. `workflow-builder`: `.archon/workflows/feature-pipeline/finish/finish.yaml`, `.archon/workflows/feature-pipeline/finish/commands/resolve.md`, `.archon/workflows/feature-pipeline/finish/commands/resolve-plans.md`, `.archon/workflows/feature-pipeline/finish/commands/resolve-specs.md`, `.archon/workflows/feature-pipeline/finish/commands/resolve-tests.md`, `.archon/workflows/feature-pipeline/finish/.archon/feature-pipeline-fence/resolver.json`, `.archon/workflows/feature-pipeline/finish/.archon/feature-pipeline-fence/resolver-plans.json`, `.archon/workflows/feature-pipeline/finish/.archon/feature-pipeline-fence/resolver-specs.json`, `.archon/workflows/feature-pipeline/finish/.archon/feature-pipeline-fence/resolver-tests.json`, `.archon/workflows/feature-pipeline/finish/fixtures/resolved.stubs.yaml`, `.archon/workflows/feature-pipeline/finish/fixtures/unresolved.stubs.yaml`: `sync`'s folder outputs, the four resolvers on their configs, `merge` over all four; `resolved` stubs a conflict in `tests/` and one in another folder, each resolved by its own resolver; `unresolved` stubs `resolvetests` leaving a conflict.
 
 Each step's done-check is the "Checking the pack" home of `feature-pipeline-finish-design.md`.
-
-## Decisions for the owner
-
-1. **The merge resolver's fence.** `resolve` is a file-writing role the fence table does not list. Recommend: it reads everything and writes anywhere but `.archon/`, `.claude/` and `.git/`, since a conflict can sit in any tracked path, `tests/` included; cost: a resolver can edit tests while resolving. Alternative: the implementer's fence (no `tests/`, `plans/approved/`, `specs/approved/`); cost: a conflict in `tests/` is left unresolved and cancels the run through `unmerged`.
-2. **What the test writer is told.** Recommend: nothing, as designed; cost: test steps build strictly in Spec order, a stuck or unbuilt test step stops every later test step for the cycle, and a review fix reaches the test writer as a blind rerun. Alternative: its prompt carries the bare step id and the reviewer's findings for that step; cost: text from a reviewer that has read the code reaches the tests.
-3. **The examiner's writes.** `spec`'s `examiner` runs measurement scripts, which `files.py` cannot do. Recommend: it keeps `Bash`, `Write` and `Edit` under the spec node's `sandbox:`, writing only its scratch copy outside the checkout; cost: its checkout writes are held off by the prompt and a sandbox whose start on this host is unverified. Alternative: it loses its write tools and the specifier measures nothing; cost: assertions that need a measured value become design gaps.
-4. **Code that runs outside the fence.** `check` and `run_tests` execute what the writers wrote with the run's full rights, and Archon offers no fence for a bash node or a stdio server's child process; such code could write `<checkout>/.archon/feature-pipeline-fence/<role>.json` before the reviewer sees it as a stray path. Recommend: accept it for now, with the reviewer's stray check as the backstop; cost: a hostile or broken test can widen the next iteration's fence. Alternative: the owner asks Archon for a sandbox on bash nodes and stdio servers, or runs the pipeline under container isolation (documented for folder projects only); cost: unmeasured.
