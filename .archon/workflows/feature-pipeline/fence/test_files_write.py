@@ -159,6 +159,8 @@ def test_edit_allowed_unless_a_newer_round_sits_beside_the_file(
         ("edit_file", ("rv/n/9.json", "x", "y")),
         ("delete_file", ("rv/p/1.json",)),
         ("delete_file", ("rv/p/2.json",)),
+        ("copy_file", ("rv/a/1.json", "rv/p/0.json")),
+        ("copy_file", ("rv/a/1.json", "rv/n/5.json")),
     ],
 )
 
@@ -169,6 +171,17 @@ def test_round_file_refuses_change_once_superseded_and_any_delete(
     f = rounds_fence(monkeypatch, tmp_path)
     with pytest.raises(PermissionError, match="FENCE_ROUNDS"):
         getattr(f, tool)(*args)
+
+
+@pytest.mark.parametrize("target", ["rv/p/3.json", "rv/p/notes.json", "rv/n/11.json"])
+
+
+def test_copy_into_round_folder_allowed_above_every_round_or_off_pattern(
+    monkeypatch, tmp_path, target
+):
+    f = rounds_fence(monkeypatch, tmp_path)
+    f.copy_file("rv/a/1.json", target)
+    assert (tmp_path / target).read_text() == "x\n"
 
 
 @pytest.mark.parametrize(

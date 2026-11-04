@@ -265,6 +265,7 @@ def copy_file(src: str, dst: str) -> str:
         raise FileExistsError(f"{dst}: destination already exists")
     if not os.path.isfile(src_real):
         raise ValueError(f"{src}: not a file")
+    _check_round(dst, dst_real, dst_parts)
     os.makedirs(os.path.dirname(dst_real), exist_ok=True)
     shutil.copyfile(src_real, dst_real)
     return f"copied {_rel(src_real)} to {_rel(dst_real)}"
