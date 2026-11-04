@@ -6,7 +6,7 @@ import pytest
 SRC = Path(__file__).with_name("files.py")
 
 
-def load(monkeypatch, root, read="", write="", deny=""):
+def load(monkeypatch, root, read="", write="", deny="", rounds=""):
     if root is None:
         monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
     else:
@@ -14,6 +14,7 @@ def load(monkeypatch, root, read="", write="", deny=""):
     monkeypatch.setenv("FENCE_READ", read)
     monkeypatch.setenv("FENCE_WRITE", write)
     monkeypatch.setenv("FENCE_DENY", deny)
+    monkeypatch.setenv("FENCE_ROUNDS", rounds)
     spec = importlib.util.spec_from_file_location("fence_files_under_test", SRC)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -246,12 +247,60 @@ def test_copy_creates_missing_destination_folders(monkeypatch, tmp_path):
     assert (tmp_path / "plans/approved/round/plan.json").read_text() == "first\n"
 
 
-def test_copy_overwrites_existing_destination(monkeypatch, tmp_path):
+def test_copy_refuses_existing_destination(monkeypatch, tmp_path):
     put(tmp_path, "plans/plan.json", "second\n")
     put(tmp_path, "plans/approved/plan.json", "first\n")
     f = load(monkeypatch, tmp_path, read="plans", write="plans/approved")
-    f.copy_file("plans/plan.json", "plans/approved/plan.json")
-    assert (tmp_path / "plans/approved/plan.json").read_text() == "second\n"
+    with pytest.raises(FileExistsError):
+        f.copy_file("plans/plan.json", "plans/approved/plan.json")
+
+
+ROUND_TREE = (
+    "rv/p/1.json",
+    "rv/p/2.json",
+    "rv/p/approved.json",
+    "rv/n/9.json",
+    "rv/n/10.json",
+    "rv/a/1.json",
+    "rv/b/2.json",
+    "out/1.json",
+    "out/2.json",
+)
+
+
+def rounds_fence(monkeypatch, tmp_path):
+    for rel in ROUND_TREE:
+        put(tmp_path, rel, "x\n")
+    return load(monkeypatch, tmp_path, read="rv:out", write="rv:out", rounds="rv")
+
+
+@pytest.mark.parametrize(
+    "target", ["rv/p/2.json", "rv/a/1.json", "out/1.json", "rv/p/approved.json"]
+)
+def test_edit_allowed_unless_a_newer_round_sits_beside_the_file(
+    monkeypatch, tmp_path, target
+):
+    f = rounds_fence(monkeypatch, tmp_path)
+    f.edit_file(target, "x", "y")
+    assert (tmp_path / target).read_text() == "y\n"
+
+
+@pytest.mark.parametrize(
+    ("tool", "args"),
+    [
+        ("write_file", ("rv/p/1.json", "y\n")),
+        ("edit_file", ("rv/p/1.json", "x", "y")),
+        ("edit_file", ("rv/n/9.json", "x", "y")),
+        ("delete_file", ("rv/p/1.json",)),
+        ("delete_file", ("rv/p/2.json",)),
+    ],
+)
+def test_round_file_refuses_change_once_superseded_and_any_delete(
+    monkeypatch, tmp_path, tool, args
+):
+    f = rounds_fence(monkeypatch, tmp_path)
+    with pytest.raises(PermissionError, match="FENCE_ROUNDS"):
+        getattr(f, tool)(*args)
 
 
 @pytest.mark.parametrize(

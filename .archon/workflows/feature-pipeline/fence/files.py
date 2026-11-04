@@ -44,6 +44,8 @@ ROOT = _root()
 READ = _folders("FENCE_READ")
 WRITE = _folders("FENCE_WRITE")
 DENY = _folders("FENCE_DENY") + [(d,) for d in ALWAYS_DENY_WRITE]
+ROUNDS = _folders("FENCE_ROUNDS")
+ROUND_NAME = re.compile(r"\d+\.json")
 
 mcp = FastMCP("fence-files")
 
@@ -86,6 +88,22 @@ def _check_write(path: str, parts: Parts) -> None:
         rules = ", ".join(_name(f) for f in WRITE) or "none"
         raise PermissionError(
             f"{path}: not inside any FENCE_WRITE folder (allowed: {rules})"
+        )
+
+
+def _check_round(path: str, real: str, parts: Parts, delete: bool = False) -> None:
+    name = os.path.basename(real)
+    if not ROUND_NAME.fullmatch(name) or not any(_inside(parts, f) for f in ROUNDS):
+        return
+    if delete:
+        raise PermissionError(f"{path}: round files are never deleted (FENCE_ROUNDS)")
+    own = int(name[:-5])
+    folder = os.path.dirname(real)
+    if os.path.isdir(folder) and any(
+        ROUND_NAME.fullmatch(n) and int(n[:-5]) > own for n in os.listdir(folder)
+    ):
+        raise PermissionError(
+            f"{path}: a newer round exists beside it; frozen by FENCE_ROUNDS"
         )
 
 
@@ -200,6 +218,7 @@ def write_file(path: str, content: str) -> str:
     """Write a file, creating parent folders. Needs a writable path."""
     real, parts = _resolve(path)
     _check_write(path, parts)
+    _check_round(path, real, parts)
     os.makedirs(os.path.dirname(real), exist_ok=True)
     with open(real, "w", encoding="utf-8", newline="") as fh:
         fh.write(content)
@@ -213,6 +232,7 @@ def edit_file(path: str, old: str, new: str, replace_all: bool = False) -> str:
     real, parts = _resolve(path)
     _check_read(path, parts)
     _check_write(path, parts)
+    _check_round(path, real, parts)
     with open(real, encoding="utf-8", newline="") as fh:
         text = fh.read()
     count = text.count(old)
@@ -228,11 +248,13 @@ def edit_file(path: str, old: str, new: str, replace_all: bool = False) -> str:
 @mcp.tool()
 def copy_file(src: str, dst: str) -> str:
     """Copy a file, creating parent folders. Needs a readable `src` and a
-    writable `dst`; an existing `dst` is overwritten."""
+    writable `dst`; an existing `dst` is refused."""
     src_real, src_parts = _resolve(src)
     _check_read(src, src_parts)
     dst_real, dst_parts = _resolve(dst)
     _check_write(dst, dst_parts)
+    if os.path.lexists(dst_real):
+        raise FileExistsError(f"{dst}: destination already exists")
     if not os.path.isfile(src_real):
         raise ValueError(f"{src}: not a file")
     os.makedirs(os.path.dirname(dst_real), exist_ok=True)
@@ -245,6 +267,7 @@ def delete_file(path: str) -> str:
     """Delete a file (not a directory). Needs a writable path."""
     real, parts = _resolve(path)
     _check_write(path, parts)
+    _check_round(path, real, parts, delete=True)
     if not os.path.isfile(real):
         raise ValueError(f"{path}: not a file")
     os.remove(real)
