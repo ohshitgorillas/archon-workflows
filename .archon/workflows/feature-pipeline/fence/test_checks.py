@@ -2,7 +2,8 @@ import asyncio
 import importlib.util
 import os
 import re
-import time
+import signal
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -26,9 +27,88 @@ def load(monkeypatch, root, command, timeout=None):
     return module
 
 
-def run(monkeypatch, root, command, timeout=None):
+def run(monkeypatch, root, command, timeout=None, clock=None):
     module = load(monkeypatch, root, command, timeout)
-    return asyncio.run(module.run_tests())
+    if clock is None:
+        return asyncio.run(module.run_tests())
+    return asyncio.run(module.run_tests_with(clock(module)))
+
+
+async def readable(fd):
+    loop = asyncio.get_running_loop()
+    ready = loop.create_future()
+    loop.add_reader(fd, lambda: ready.done() or ready.set_result(None))
+    try:
+        await ready
+    finally:
+        loop.remove_reader(fd)
+
+
+def virtual_clock(module, ready_fd=None):
+    """A clock whose sleep advances its own reading and returns at once.
+
+    With ready_fd, a sleep first waits until the command has written its
+    ready line, so no deadline fires before the command reached its steady state.
+    """
+    elapsed = 0.0
+
+    def monotonic():
+        return elapsed
+
+    async def sleep(seconds):
+        nonlocal elapsed
+        if ready_fd is not None:
+            await readable(ready_fd)
+        elapsed += seconds
+
+    return module.Clock(monotonic=monotonic, sleep=sleep)
+
+
+def dead(pid):
+    """True once pid has exited or holds a pending SIGKILL, which it cannot escape.
+
+    ps lists nothing for a pid that is gone; -L reports the thread's own pending
+    mask, where the kernel queues SIGKILL for a process that a fatal signal hit.
+    """
+    ps = subprocess.run(
+        ["ps", "-L", "-o", "stat=,pending=", "-p", str(pid)],
+        capture_output=True, text=True, check=False,
+    )
+    rows = ps.stdout.split()
+    if not rows:
+        return True
+    state, pending = rows[0], int(rows[1], 16)
+    return state[0] in "ZX" or bool(pending & (1 << (signal.SIGKILL - 1)))
+
+
+# Prints the shell's pid and a background child's pid, signals readiness on
+# the ready fifo once both exist, then waits on a short foreground job, so the
+# command ends by itself if no timeout fires.
+BACKGROUNDED = "sleep 30 & echo $$ $!; sleep 3 & echo > ready; wait $!"
+
+
+def run_past_timeout(monkeypatch, tmp_path, command):
+    """Run command on a virtual clock past a production-sized timeout.
+
+    Returns the header fields plus whether the background child is dead, then
+    kills whatever is left of the process group.
+    """
+    os.mkfifo(tmp_path / "ready")
+    fd = os.open(tmp_path / "ready", os.O_RDWR | os.O_NONBLOCK)
+    try:
+        result = run(
+            monkeypatch, tmp_path, command, "900",
+            clock=lambda module: virtual_clock(module, fd),
+        )
+    finally:
+        os.close(fd)
+    shell, child = (int(pid) for pid in body(result).split())
+    evidence = {**header(result), "child_dead": dead(child)}
+    try:
+        os.killpg(shell, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    return evidence
 
 
 def header(result):
@@ -97,20 +177,22 @@ def test_long_output_keeps_last_20000_chars(monkeypatch, tmp_path):
     assert body(result) == "x" * 20000
 
 
-def test_timeout_kills_group(monkeypatch, tmp_path):
-    start = time.monotonic()
-    result = run(monkeypatch, tmp_path, "echo $$; sleep 30 & sleep 30", "1")
-    assert time.monotonic() - start < 9
-    assert " timed_out=true " in result.partition("\n")[0]
-    pgid = int(result.splitlines()[1])
-    deadline = time.monotonic() + 3
-    while time.monotonic() < deadline:
-        try:
-            os.killpg(pgid, 0)
-        except ProcessLookupError:
-            return
-        time.sleep(0.1)
-    pytest.fail("process group still alive")
+def test_run_past_its_timeout_reports_timed_out(monkeypatch, tmp_path):
+    result = run(monkeypatch, tmp_path, "sleep 3", "900", clock=virtual_clock)
+    assert header(result)["timed_out"] == "true"
+
+
+def test_timeout_kills_background_child_of_the_group(monkeypatch, tmp_path):
+    assert run_past_timeout(monkeypatch, tmp_path, BACKGROUNDED)["child_dead"]
+
+
+def test_timeout_sends_sigterm_before_sigkill(monkeypatch, tmp_path):
+    assert run_past_timeout(monkeypatch, tmp_path, BACKGROUNDED)["exit"] == str(-signal.SIGTERM)
+
+
+def test_timeout_escalates_to_sigkill_when_sigterm_is_ignored(monkeypatch, tmp_path):
+    command = "trap '' TERM; " + BACKGROUNDED
+    assert run_past_timeout(monkeypatch, tmp_path, command)["exit"] == str(-signal.SIGKILL)
 
 
 @pytest.mark.parametrize(("env", "name"), BAD_STARTUPS)

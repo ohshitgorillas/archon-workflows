@@ -8,6 +8,8 @@ import signal
 import sys
 import tempfile
 import time
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 
 from mcp.server.fastmcp import FastMCP
 
@@ -62,11 +64,28 @@ def _tail(text):
     return kept
 
 
-@mcp.tool()
-async def run_tests() -> str:
-    """Run the fixed test command in the project checkout and return its result."""
+@dataclass(frozen=True)
+class Clock:
+    monotonic: Callable[[], float] = time.monotonic
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep
+
+
+async def _exits_within(proc, seconds, clock):
+    """Wait for proc to exit or for clock to sleep through seconds; True if it exited."""
+    exited = asyncio.ensure_future(proc.wait())
+    timer = asyncio.ensure_future(clock.sleep(seconds))
+    try:
+        await asyncio.wait({exited, timer}, return_when=asyncio.FIRST_COMPLETED)
+        return exited.done()
+    finally:
+        exited.cancel()
+        timer.cancel()
+
+
+async def run_tests_with(clock: Clock) -> str:
+    """run_tests, with every wait and elapsed reading taken from clock."""
     async with LOCK:
-        start = time.monotonic()
+        start = clock.monotonic()
         timed_out = False
         with tempfile.TemporaryFile() as out:
             proc = await asyncio.create_subprocess_exec(
@@ -81,22 +100,24 @@ async def run_tests() -> str:
             )
             pgid = proc.pid
             try:
-                await asyncio.wait_for(proc.wait(), TIMEOUT)
-            except asyncio.TimeoutError:
-                timed_out = True
-                _killpg(pgid, signal.SIGTERM)
-                try:
-                    await asyncio.wait_for(proc.wait(), 5)
-                except asyncio.TimeoutError:
-                    pass
+                if not await _exits_within(proc, TIMEOUT, clock):
+                    timed_out = True
+                    _killpg(pgid, signal.SIGTERM)
+                    await _exits_within(proc, 5, clock)
             finally:
                 _killpg(pgid, signal.SIGKILL)
             await proc.wait()
             out.seek(0)
             text = out.read().decode("utf-8", errors="replace")
-        seconds = time.monotonic() - start
+        seconds = clock.monotonic() - start
         head = f"exit={proc.returncode} timed_out={str(timed_out).lower()} seconds={seconds:.1f}"
         return f"{head}\n{_tail(text)}"
+
+
+@mcp.tool()
+async def run_tests() -> str:
+    """Run the fixed test command in the project checkout and return its result."""
+    return await run_tests_with(Clock())
 
 
 if __name__ == "__main__":
